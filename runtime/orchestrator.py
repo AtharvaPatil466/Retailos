@@ -5,7 +5,7 @@ import time
 import traceback
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +61,7 @@ class Orchestrator:
         self.memory = memory
         self.audit = audit
         self.skill_loader = skill_loader
-        if api_key:
-            genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel("gemini-2.5-flash")
+        self.client = genai.Client(api_key=api_key) if api_key else None
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self.running = False
         self.pending_approvals: dict[str, dict] = {}
@@ -167,7 +165,13 @@ Decide which skill(s) to run and why."""
 
         for attempt in range(self.max_retries):
             try:
-                response = await self.model.generate_content_async(prompt)
+                if not self.client:
+                    raise ValueError("API key not configured")
+                
+                response = await self.client.aio.models.generate_content(
+                    model="gemini-1.5-flash",
+                    contents=prompt
+                )
 
                 text = response.text
                 # Extract JSON from response

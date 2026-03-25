@@ -4,11 +4,11 @@ import os
 import time
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 
-from skills.base_skill import BaseSkill, SkillState
+from .base_skill import BaseSkill, SkillState
 
 
 OUTREACH_SYSTEM_PROMPT = """You are writing a WhatsApp message from a supermart owner to a supplier.
@@ -54,7 +54,7 @@ class NegotiationSkill(BaseSkill):
 
     def __init__(self, memory=None, audit=None):
         super().__init__(name="negotiation", memory=memory, audit=audit)
-        self.model: genai.GenerativeModel | None = None
+        self.client: genai.Client | None = None
         self.active_negotiations: dict[str, dict] = {}
         self.message_log: list[dict] = []  # WhatsApp conversation log
 
@@ -62,8 +62,13 @@ class NegotiationSkill(BaseSkill):
         self.state = SkillState.RUNNING
 
     async def run(self, event: dict[str, Any]) -> dict[str, Any]:
+        if not event:
+            return {"status": "error", "message": "Event is None"}
+            
         event_type = event.get("type", "")
         data = event.get("data", event.get("params", {}))
+        if not data:
+            data = {}
 
         if event_type == "procurement_approved":
             return await self._start_negotiation(data)
@@ -288,12 +293,11 @@ class NegotiationSkill(BaseSkill):
         return [m for m in self.message_log if m.get("negotiation_id") == negotiation_id]
 
     async def _draft_outreach(self, product_name: str, supplier: dict, relationship: dict) -> str:
-        if not self.model:
+        if not self.client:
             import os
             api_key = os.environ.get("GEMINI_API_KEY", "")
             if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel("gemini-2.5-flash")
+                self.client = genai.Client(api_key=api_key)
             else:
                 return self._template_outreach(product_name, supplier)
 
@@ -307,7 +311,10 @@ Past relationship: {json.dumps(relationship, default=str) if relationship else '
 Write the message only, no explanation."""
 
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt
+            )
             return response.text.strip()
         except Exception as e:
             logger.warning("Negotiation outreach draft failed: %s", e)
@@ -321,12 +328,11 @@ Write the message only, no explanation."""
         )
 
     async def _parse_reply(self, raw_reply: str, supplier_name: str) -> dict[str, Any]:
-        if not self.model:
+        if not self.client:
             import os
             api_key = os.environ.get("GEMINI_API_KEY", "")
             if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel("gemini-2.5-flash")
+                self.client = genai.Client(api_key=api_key)
             else:
                 return self._fallback_parse(raw_reply)
 
@@ -339,7 +345,10 @@ Their reply (may be Hinglish, messy, or partial):
 Parse this reply and identify what information is present and what's missing."""
 
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=prompt
+            )
 
             text = response.text
             try:

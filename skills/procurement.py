@@ -3,14 +3,14 @@ import logging
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-from skills.base_skill import BaseSkill, SkillState
+from .base_skill import BaseSkill, SkillState
 
 
 RANKING_SYSTEM_PROMPT = """You are a procurement analyst for a retail supermart. Given a list of suppliers and memory context about past orders, rank the top 2-3 suppliers with detailed reasoning.
@@ -50,7 +50,7 @@ class ProcurementSkill(BaseSkill):
     def __init__(self, memory=None, audit=None):
         super().__init__(name="procurement", memory=memory, audit=audit)
         self.suppliers_data: list[dict] = []
-        self.model: genai.GenerativeModel | None = None
+        self.client: genai.Client | None = None
 
     async def init(self) -> None:
         try:
@@ -61,7 +61,13 @@ class ProcurementSkill(BaseSkill):
         self.state = SkillState.RUNNING
 
     async def run(self, event: dict[str, Any]) -> dict[str, Any]:
+        if not event:
+            return {"status": "error", "message": "Event is None"}
+            
         data = event.get("data", event.get("params", {}))
+        if not data:
+            data = {}
+            
         product_name = data.get("product_name", "Unknown Product")
         sku = data.get("sku", "")
         category = data.get("category", "")
@@ -152,17 +158,16 @@ class ProcurementSkill(BaseSkill):
                 matches.append(supplier)
 
         # If no exact matches, return all suppliers (demo fallback)
-        return matches if matches else self.suppliers_data[:5]
+        return matches if matches else list(self.suppliers_data[:5])
 
     async def _rank_with_gemini(
         self, product_name: str, suppliers: list[dict], memory_context: dict
     ) -> dict[str, Any]:
-        if not self.model:
+        if not self.client:
             import os
             api_key = os.environ.get("GEMINI_API_KEY", "")
             if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel("gemini-2.5-flash")
+                self.client = genai.Client(api_key=api_key)
             else:
                 return self._fallback_ranking(suppliers)
 
@@ -179,7 +184,10 @@ Past order history and context:
 Rank the top 2-3 suppliers with detailed reasoning."""
 
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt
+            )
 
             text = response.text
             try:
@@ -219,15 +227,17 @@ Rank the top 2-3 suppliers with detailed reasoning."""
         scored.sort(key=lambda x: x[0], reverse=True)
 
         ranked = []
-        for i, (score, s) in enumerate(scored[:3]):
+        top_scored = cast(list[Any], scored[:3])
+        for i, item in enumerate(top_scored):
+            score, s = item
             ranked.append({
                 "rank": i + 1,
-                "supplier_id": s["supplier_id"],
-                "supplier_name": s["supplier_name"],
+                "supplier_id": s.get("supplier_id"),
+                "supplier_name": s.get("supplier_name"),
                 "price_per_unit": s.get("price_per_unit", 0),
                 "delivery_days": s.get("delivery_days", 0),
                 "min_order_qty": s.get("min_order_qty", 0),
-                "reasoning": f"Score: {score:.1f} (reliability: {s.get('reliability_score', 0)}, price: ₹{s.get('price_per_unit', 0)}, delivery: {s.get('delivery_days', 0)} days)",
+                "reasoning": f"Score: {float(score):.1f} (reliability: {s.get('reliability_score', 0)}, price: ₹{s.get('price_per_unit', 0)}, delivery: {s.get('delivery_days', 0)} days)",
             })
 
         return {

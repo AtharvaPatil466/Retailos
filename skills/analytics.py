@@ -5,12 +5,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-import google.generativeai as genai
+from google import genai
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-from skills.base_skill import BaseSkill, SkillState
+from .base_skill import BaseSkill, SkillState
 
 
 ANALYTICS_SYSTEM_PROMPT = """You are the analytics engine for RetailOS, an autonomous retail operations system.
@@ -47,12 +47,14 @@ class AnalyticsSkill(BaseSkill):
 
     def __init__(self, memory=None, audit=None):
         super().__init__(name="analytics", memory=memory, audit=audit)
-        self.model: genai.GenerativeModel | None = None
+        self.client: genai.Client | None = None
 
     async def init(self) -> None:
         self.state = SkillState.RUNNING
 
     async def run(self, event: dict[str, Any]) -> dict[str, Any]:
+        if not event:
+            return {"status": "error", "message": "Event is None"}
         # Gather audit logs from the last 24 hours
         recent_logs = []
         if self.audit:
@@ -107,8 +109,8 @@ class AnalyticsSkill(BaseSkill):
                 "total_skus": len(inventory),
                 "low_stock_count": len(low_stock),
                 "low_stock_items": [
-                    {"name": i["product_name"], "stock": i["current_stock"], "threshold": i["reorder_threshold"]}
-                    for i in low_stock[:10]
+                    {"name": str(i.get("product_name", "")), "stock": i.get("current_stock", 0), "threshold": i.get("reorder_threshold", 0)}
+                    for i in list(low_stock[:10])
                 ],
             }
         except Exception as e:
@@ -116,12 +118,11 @@ class AnalyticsSkill(BaseSkill):
             return {"total_skus": 0, "low_stock_count": 0, "low_stock_items": []}
 
     async def _analyze(self, logs: list[dict], inventory: dict) -> dict[str, Any]:
-        if not self.model:
+        if not self.client:
             import os
             api_key = os.environ.get("GEMINI_API_KEY", "")
             if api_key:
-                genai.configure(api_key=api_key)
-                self.model = genai.GenerativeModel("gemini-2.5-flash")
+                self.client = genai.Client(api_key=api_key)
             else:
                 return self._fallback_analysis(logs, inventory)
 
@@ -149,7 +150,10 @@ Inventory status:
 Identify patterns, issues, and recommendations."""
 
         try:
-            response = await self.model.generate_content_async(prompt)
+            response = await self.client.aio.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt
+            )
 
             text = response.text
             try:

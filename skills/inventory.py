@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from skills.base_skill import BaseSkill, SkillState
+from .base_skill import BaseSkill, SkillState
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -29,6 +29,9 @@ class InventorySkill(BaseSkill):
         self.state = SkillState.RUNNING
 
     async def run(self, event: dict[str, Any]) -> dict[str, Any]:
+        if not event:
+            return {"status": "error", "message": "Event is None"}
+            
         """Check inventory levels, return alerts for items crossing threshold."""
         alerts = []
 
@@ -108,7 +111,7 @@ class InventorySkill(BaseSkill):
             days_left = current / daily_rate if daily_rate > 0 else float("inf")
             result.append({
                 **item,
-                "days_until_stockout": round(days_left, 1),
+                "days_until_stockout": round(float(days_left), 1),
                 "status": "critical" if days_left < 2 else "warning" if days_left < 5 else "ok",
             })
         return result
