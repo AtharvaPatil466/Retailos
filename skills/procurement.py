@@ -88,8 +88,15 @@ class ProcurementSkill(BaseSkill):
             for supplier in matching_suppliers:
                 sid = supplier["supplier_id"]
                 history = await self.memory.get(f"supplier:{sid}:history")
+                
+                from brain.context_builder import get_supplier_context
+                trust_context = get_supplier_context(sid)
+                
                 if history:
+                    history["trust_data"] = trust_context
                     memory_context[sid] = history
+                else:
+                    memory_context[sid] = {"trust_data": trust_context}
             # Get daily summary for broader context
             daily = await self.memory.get("orchestrator:daily_summary")
             if daily:

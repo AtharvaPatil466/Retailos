@@ -74,6 +74,9 @@ class AnalyticsSkill(BaseSkill):
                 "insights": analysis.get("insights", []),
                 "recommendations": analysis.get("system_recommendations", []),
             })
+            
+            from brain.insight_writer import write_daily_insight
+            await write_daily_insight(self.memory)
 
         if self.audit:
             await self.audit.log(

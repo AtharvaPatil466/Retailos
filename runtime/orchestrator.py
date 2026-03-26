@@ -288,6 +288,33 @@ Decide which skill(s) to run and why."""
 
                 # Check if result needs owner approval
                 if result.get("needs_approval"):
+                    details = result.get("approval_details", {})
+                    supplier_id = details.get("supplier_id") or (details.get("top_supplier", {}).get("supplier_id") if details.get("top_supplier") else None)
+                    amount = details.get("amount") or details.get("price") or details.get("total_cost") or (details.get("top_supplier", {}).get("price_per_unit", 0) * details.get("top_supplier", {}).get("min_order_qty", 1) if details.get("top_supplier") else None)
+
+                    auto_approved = False
+                    if supplier_id and amount is not None:
+                        from brain.auto_approver import should_auto_approve
+                        from brain.decision_logger import log_decision
+                        
+                        if should_auto_approve(supplier_id, amount):
+                            auto_approved = True
+                            log_decision(supplier_id, amount, "approved")
+                            
+                            follow_up = result.get("on_approval_event")
+                            if follow_up:
+                                asyncio.create_task(self.emit_event(follow_up))
+                                
+                            await self.audit.log(
+                                skill=skill_name,
+                                event_type="auto_approved",
+                                decision="Silently approved via Brain subsystem",
+                                reasoning=f"Trust score high and amount {amount} below ceiling",
+                                outcome="Triggered follow-up event",
+                                status="success"
+                            )
+                            return {"skill": skill_name, "status": "success", "result": result, "auto_approved": True}
+
                     approval_id = result.get("approval_id", f"{skill_name}_{int(time.time())}")
                     self.pending_approvals[approval_id] = {
                         "skill": skill_name,
@@ -343,6 +370,14 @@ Decide which skill(s) to run and why."""
             return {"error": "Approval not found"}
 
         approval = self.pending_approvals.pop(approval_id)
+        
+        from brain.decision_logger import log_decision
+        details = approval["result"].get("approval_details", {})
+        supplier_id = details.get("supplier_id") or (details.get("top_supplier", {}).get("supplier_id") if details.get("top_supplier") else None)
+        amount = details.get("amount") or details.get("price") or details.get("total_cost") or (details.get("top_supplier", {}).get("price_per_unit", 0) * details.get("top_supplier", {}).get("min_order_qty", 1) if details.get("top_supplier") else None)
+        if supplier_id and amount is not None:
+            log_decision(supplier_id, amount, "approved")
+            
         await self.audit.log(
             skill=approval["skill"],
             event_type="owner_approved",
@@ -365,6 +400,14 @@ Decide which skill(s) to run and why."""
             return {"error": "Approval not found"}
 
         approval = self.pending_approvals.pop(approval_id)
+        
+        from brain.decision_logger import log_decision
+        details = approval["result"].get("approval_details", {})
+        supplier_id = details.get("supplier_id") or (details.get("top_supplier", {}).get("supplier_id") if details.get("top_supplier") else None)
+        amount = details.get("amount") or details.get("price") or details.get("total_cost") or (details.get("top_supplier", {}).get("price_per_unit", 0) * details.get("top_supplier", {}).get("min_order_qty", 1) if details.get("top_supplier") else None)
+        if supplier_id and amount is not None:
+            log_decision(supplier_id, amount, "rejected")
+
         await self.audit.log(
             skill=approval["skill"],
             event_type="owner_rejected",
