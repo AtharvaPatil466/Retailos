@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(npm install:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m venv venv)",
+      "Bash(source venv/bin/activate)",
+      "Bash(rm -rf venv)",
+      "Bash(python3.13 -m venv venv)",
+      "Bash(python3 -c \":*)",
+      "Bash(grep -n \"async def\" skills/*.py runtime/*.py)",
+      "Bash(grep -n \"if self.audit\\\\|if self.memory\" skills/*.py)"
+    ]
+  }
+}

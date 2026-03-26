@@ -15,6 +15,9 @@ from .base_skill import BaseSkill, SkillState
 
 RANKING_SYSTEM_PROMPT = """You are a procurement analyst for a retail supermart. Given a list of suppliers and memory context about past orders, rank the top 2-3 suppliers with detailed reasoning.
 
+{wastage_context}
+{market_context}
+
 Consider these factors:
 1. Price per unit (lower is better)
 2. Reliability score (1-5, higher is better)
@@ -71,6 +74,42 @@ class ProcurementSkill(BaseSkill):
         product_name = data.get("product_name", "Unknown Product")
         sku = data.get("sku", "")
         category = data.get("category", "")
+        daily_sales = data.get("daily_sales_rate", 10)
+        lead_time = data.get("lead_time_days", 7)
+
+        # Fetch wastage context
+        from brain.reorder_optimizer import get_optimized_reorder_quantity
+        opt_data = get_optimized_reorder_quantity(sku, daily_sales, lead_time)
+        
+        wastage_context = (
+            f"--- SYSTEM OPTIMIZATION DATA ---\n"
+            f"Product: {product_name} ({sku})\n"
+            f"Current generic logic suggests: {opt_data['base_quantity']} units\n"
+            f"Wastage-adjusted suggestion: {opt_data['optimized_quantity']} units\n"
+            f"Reason: {opt_data['wastage_rate']*100:.1f}% wastage rate over last 30 days\n"
+            f"Current sales velocity: {opt_data['avg_daily_sales']} units/day\n"
+            f"Take this adjusted suggestion strongly into account.\n"
+            f"--------------------------------"
+        )
+        
+        # Analyze Quotes vs Market Data
+        from brain.price_monitor import get_market_reference
+        from brain.price_analyzer import format_supplier_verdict
+        
+        market_ref = get_market_reference(sku)
+        market_context_str = ""
+        
+        if market_ref.get("median_price"):
+            market_context_str += (
+                f"--- MARKET INTELLIGENCE ---\n"
+                f"Median market price:  ₹{market_ref['median_price']}/unit  (confidence: {market_ref['confidence']})\n"
+                f"Lowest available:     ₹{market_ref['lowest_price']}/unit  ({market_ref['lowest_source']})\n\n"
+            )
+            for supplier in matching_suppliers:
+                sp = supplier.get("price_per_unit", None)
+                if sp:
+                    market_context_str += format_supplier_verdict(supplier["supplier_name"], float(sp), market_ref) + "\n"
+            market_context_str += "---------------------------\n"
 
         # Find suppliers that carry this product/category
         matching_suppliers = self._find_suppliers(product_name, category)
@@ -103,7 +142,7 @@ class ProcurementSkill(BaseSkill):
                 memory_context["daily_summary"] = daily
 
         # Call Gemini for ranking
-        ranking = await self._rank_with_gemini(product_name, matching_suppliers, memory_context)
+        ranking = await self._rank_with_gemini(product_name, matching_suppliers, memory_context, wastage_context, market_context_str)
 
         # Store the ranking decision in memory
         if self.memory:
@@ -168,7 +207,7 @@ class ProcurementSkill(BaseSkill):
         return matches if matches else list(self.suppliers_data[:5])
 
     async def _rank_with_gemini(
-        self, product_name: str, suppliers: list[dict], memory_context: dict
+        self, product_name: str, suppliers: list[dict], memory_context: dict, wastage_context: str, market_context: str = ""
     ) -> dict[str, Any]:
         if not self.client:
             import os
@@ -178,7 +217,7 @@ class ProcurementSkill(BaseSkill):
             else:
                 return self._fallback_ranking(suppliers)
 
-        prompt = f"""{RANKING_SYSTEM_PROMPT}
+        prompt = f"""{RANKING_SYSTEM_PROMPT.replace("{wastage_context}", wastage_context).replace("{market_context}", market_context)}
 
 Product needing procurement: {product_name}
 

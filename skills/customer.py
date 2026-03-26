@@ -16,6 +16,14 @@ from .base_skill import BaseSkill, SkillState
 MESSAGE_SYSTEM_PROMPT = """You are writing a personalized WhatsApp message from a supermart to a customer about a special deal.
 The message should feel personal — reference the customer's actual purchase history.
 Keep it under 100 words, friendly, and conversational. No formal language.
+Write the message only, no explanation or formatting.
+
+{template_context}"""
+
+RE_ENGAGE_PROMPT = """You are writing a re-engagement WhatsApp message from a supermart to a lapsed customer.
+This customer used to buy every {avg_gap} days but hasn't visited in {days_absent} days.
+The message should feel personal, warm, and offer an incentive to return.
+Keep it under 100 words. No formal language.
 Write the message only, no explanation or formatting."""
 
 
@@ -42,6 +50,12 @@ class CustomerSkill(BaseSkill):
     async def run(self, event: dict[str, Any]) -> dict[str, Any]:
         if not event:
             return {"status": "error", "message": "Event is None"}
+        
+        event_type = event.get("type", "")
+        
+        # Handle churn risk re-engagement
+        if event_type == "churn_risk":
+            return await self._handle_churn_risk(event.get("data", {}))
             
         data = event.get("data", event.get("params", {}))
         if not data:
@@ -83,10 +97,21 @@ class CustomerSkill(BaseSkill):
         messages = []
         for customer in segment[:10]:  # Cap at 10 for demo
             message = await self._write_message(customer, product_name, discount)
+            
+            customer_id = customer.get("phone", customer.get("id", ""))
+            message_id = f"msg_{customer_id}_{int(time.time())}"
+            
+            # Track the outbound message
+            from brain.message_tracker import log_message_sent
+            template_used = self._detect_template(message)
+            log_message_sent(customer_id, message_id, template_used)
+            
             msg_entry = {
                 "customer_name": customer.get("name", "Customer"),
                 "phone": customer.get("phone", ""),
                 "message": message,
+                "message_id": message_id,
+                "template_used": template_used,
                 "product": product_name,
                 "timestamp": time.time(),
             }
@@ -96,7 +121,7 @@ class CustomerSkill(BaseSkill):
             if self.memory:
                 await self.memory.set(
                     f"customer:{customer.get('phone', '')}:last_offer",
-                    {"product": product_name, "timestamp": time.time()},
+                    {"product": product_name, "message_id": message_id, "timestamp": time.time()},
                 )
 
         if self.audit:
@@ -196,7 +221,11 @@ class CustomerSkill(BaseSkill):
             p.get("product", "item") for p in recent_purchases
         )
 
-        prompt = f"""{MESSAGE_SYSTEM_PROMPT}
+        # Inject template performance data
+        from brain.conversion_scorer import get_template_context
+        template_ctx = get_template_context()
+
+        prompt = f"""{MESSAGE_SYSTEM_PROMPT.format(template_context=template_ctx if template_ctx else 'No template performance data yet.')}
 
 Customer: {customer.get('name', 'Customer')}
 Recent purchases: {purchase_summary}
@@ -222,3 +251,89 @@ Write a personalized WhatsApp message."""
             f"{discount}. Since you've been picking this up regularly, "
             f"thought you'd want to know first. Want us to keep some aside for you?"
         )
+
+    def _detect_template(self, message: str) -> str:
+        """Simple heuristic to classify the message style for A/B tracking."""
+        msg_lower = message.lower()
+        if any(w in msg_lower for w in ["hurry", "limited", "last chance", "running out", "don't miss"]):
+            return "urgency-based"
+        elif any(w in msg_lower for w in ["discount", "% off", "save", "deal", "offer"]):
+            return "discount-led"
+        elif any(w in msg_lower for w in ["hi ", "hey ", "noticed you", "since you"]):
+            return "personalized-name"
+        else:
+            return "general"
+
+    async def _handle_churn_risk(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Generate a re-engagement message for an at-risk customer."""
+        customer_id = data.get("customer_id", "")
+        customer_name = data.get("customer_name", "Customer")
+        avg_gap = data.get("avg_gap_days", 7)
+        days_absent = data.get("days_absent", 14)
+
+        # Find full customer data
+        customer = None
+        for c in self.customers_data:
+            if c.get("phone") == customer_id or c.get("id") == customer_id:
+                customer = c
+                break
+
+        if not customer:
+            customer = {"name": customer_name, "phone": customer_id}
+
+        message = await self._write_reengage_message(customer, avg_gap, days_absent)
+
+        # Track the outbound message
+        from brain.message_tracker import log_message_sent
+        message_id = f"churn_{customer_id}_{int(time.time())}"
+        log_message_sent(customer_id, message_id, "re-engagement")
+
+        if self.audit:
+            await self.audit.log(
+                skill=self.name,
+                event_type="churn_reengage",
+                decision=f"Sent re-engagement to {customer_name} (churn score: {data.get('churn_score', 'N/A')})",
+                reasoning=f"Customer usually buys every {avg_gap} days but absent for {days_absent} days",
+                outcome=message[:200],
+                status="success",
+            )
+
+        return {
+            "status": "reengage_sent",
+            "customer_name": customer_name,
+            "customer_id": customer_id,
+            "message": message,
+            "message_id": message_id,
+            "churn_score": data.get("churn_score"),
+        }
+
+    async def _write_reengage_message(self, customer: dict, avg_gap: float, days_absent: float) -> str:
+        if not self.client:
+            import os
+            api_key = os.environ.get("GEMINI_API_KEY", "")
+            if api_key:
+                self.client = genai.Client(api_key=api_key)
+            else:
+                name = customer.get("name", "there")
+                return f"Hi {name}! We haven't seen you in a while and we miss you. Come back this week for a special 15% off your next purchase!"
+
+        recent_purchases = customer.get("purchase_history", [])[-3:]
+        purchase_summary = ", ".join(p.get("product", "item") for p in recent_purchases) if recent_purchases else "various items"
+
+        prompt = f"""{RE_ENGAGE_PROMPT.format(avg_gap=avg_gap, days_absent=days_absent)}
+
+Customer: {customer.get('name', 'Customer')}
+Recent purchases: {purchase_summary}
+
+Write a re-engagement WhatsApp message."""
+
+        try:
+            response = await self.client.aio.models.generate_content(
+                model="gemini-1.5-flash",
+                contents=prompt
+            )
+            return response.text.strip()
+        except Exception as e:
+            logger.warning("Re-engagement message generation failed: %s", e)
+            name = customer.get("name", "there")
+            return f"Hi {name}! We haven't seen you in a while and we miss you. Come back this week for a special 15% off your next purchase!"

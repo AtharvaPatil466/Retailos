@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 from runtime.audit import AuditLogger
 from runtime.memory import Memory
-from runtime.skill_loader import SkillLoader
-from skills.base_skill import SkillState
+from skills.base_skill import BaseSkill
+from skills.scheduling import SchedulingSkill
 
 
 ROUTING_SYSTEM_PROMPT = """You are the RetailOS orchestrator — an autonomous agent runtime for retail operations.
@@ -25,6 +25,7 @@ Available skills:
 - negotiation: Handles the entire WhatsApp conversation, including sending outreach and parsing/evaluating supplier replies into deals
 - customer: Segments customers and sends personalized offers
 - analytics: Analyzes patterns in audit logs and purchase data
+- scheduling: Manages staff shifts, reviews schedules, and optimizes staffing levels
 
 You must respond with valid JSON only:
 {
@@ -55,18 +56,36 @@ class Orchestrator:
         self,
         memory: Memory,
         audit: AuditLogger,
-        skill_loader: SkillLoader,
+        # skill_loader: SkillLoader, # Removed SkillLoader
         api_key: str,
     ):
         self.memory = memory
         self.audit = audit
-        self.skill_loader = skill_loader
+        # self.skill_loader = skill_loader # Removed SkillLoader
         self.client = genai.Client(api_key=api_key) if api_key else None
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self.running = False
         self.pending_approvals: dict[str, dict] = {}
         self.max_retries = 3
         self.retry_delay = 2  # seconds
+
+        # Manually load core skills
+        from skills.inventory import InventorySkill
+        from skills.procurement import ProcurementSkill
+        from skills.customer import CustomerSkill
+        from skills.analytics import AnalyticsSkill
+        from skills.negotiation import NegotiationSkill
+        from skills.scheduling import SchedulingSkill
+        
+        skill_classes = [
+            InventorySkill, ProcurementSkill, CustomerSkill, 
+            AnalyticsSkill, NegotiationSkill, SchedulingSkill
+        ]
+        
+        self.skills: dict[str, BaseSkill] = {}
+        for skill_class in skill_classes:
+            skill_instance = skill_class(memory=self.memory, audit=self.audit)
+            self.skills[skill_instance.name] = skill_instance
 
     async def start(self) -> None:
         """Start the orchestrator event loop."""
@@ -129,6 +148,87 @@ class Orchestrator:
             )
             return {"error": "Invalid event: missing 'type' field"}
         event_type = event.get("type", "unknown")
+
+        # Intercept delivery and quality events to log them into the central DB
+        if event_type == "delivery":
+            from brain.decision_logger import log_delivery
+            data = event.get("data", {})
+            log_delivery(
+                data.get("supplier_id", ""),
+                data.get("order_id", ""),
+                data.get("expected_date", ""),
+                data.get("actual_date", "")
+            )
+            return {"status": "success", "message": "Delivery logged in brain"}
+            
+        if event_type == "quality_issue":
+            from brain.decision_logger import log_quality_flag
+            data = event.get("data", {})
+            log_quality_flag(
+                data.get("supplier_id", ""),
+                data.get("order_id", ""),
+                data.get("reason", "")
+            )
+            return {"status": "success", "message": "Quality issue logged in brain"}
+
+        # Intercept daily analytics to also run churn detector
+        if event_type == "daily_analytics":
+            from pathlib import Path
+            import json
+            import asyncio
+            base_dir = Path(__file__).resolve().parent.parent
+            try:
+                with open(base_dir / "data" / "mock_customers.json", "r") as f:
+                    customers = json.load(f)
+                from brain.churn_detector import detect_at_risk_customers
+                churn_events = detect_at_risk_customers(customers)
+                for ce in churn_events:
+                    asyncio.create_task(self.emit_event(ce))
+            except Exception as e:
+                logger.error(f"Churn detection failed: {e}")
+                
+            # Expiry Alerter
+            from brain.expiry_alerter import get_expiry_risks
+            try:
+                with open(base_dir / "data" / "mock_inventory.json", "r") as f:
+                    inventory_items = json.load(f)
+                expiry_events = get_expiry_risks(inventory_items)
+                for ee in expiry_events:
+                    asyncio.create_task(self.emit_event(ee))
+            except Exception as e:
+                logger.error(f"Expiry detection failed: {e}")
+                
+            # Competitor Price Monitor Auto-Fetch
+            try:
+                from brain.price_monitor import fetch_agmarknet_prices
+                with open(base_dir / "data" / "mock_inventory.json", "r") as f:
+                    inv_items = json.load(f)
+                
+                # Fetch top 20 items by sales volume
+                sorted_items = sorted(inv_items, key=lambda x: x.get("daily_sales_rate", 0), reverse=True)
+                top_20_skus = [i["sku"] for i in sorted_items[:20]]
+                if top_20_skus:
+                    fetch_agmarknet_prices(top_20_skus)
+            except Exception as e:
+                logger.error(f"Price fetching failed: {e}")
+                
+            # --- Staff Scheduling Auto-Review ---
+            # Automatically push a shift_review event for tomorrow into the system natively
+            try:
+                from datetime import date, timedelta
+                tomorrow = date.today() + timedelta(days=1)
+                if "scheduling" in self.skills:
+                    # Fire directly synchronously to prevent complex queue drops in testing
+                    sched_result = await self.skills["scheduling"].run({
+                        "type": "shift_review", 
+                        "data": {"target_date": tomorrow.isoformat()}
+                    })
+                    if sched_result.get("needs_approval"):
+                        self._add_to_approval_queue(sched_result)
+            except Exception as e:
+                logger.error(f"Daily scheduling review failed: {e}")
+
+            # Do NOT return here, allow daily_analytics to proceed to the analytics skill
 
         # Fetch relevant memory
         context = await self.memory.get_relevant(event_type, event.get("data", {}))
@@ -227,6 +327,10 @@ Decide which skill(s) to run and why."""
             actions = [
                 {"skill": "procurement", "params": event.get("data", {}), "reason": "Fallback: stock level change triggers procurement check"},
             ]
+        elif event_type == "seasonal_preempt":
+            actions = [
+                {"skill": "procurement", "params": event.get("data", {}), "reason": "Fallback: seasonal pattern detected, triggering proactive procurement"},
+            ]
         elif event_type == "procurement_approved":
             actions = [
                 {"skill": "negotiation", "params": event.get("data", {}), "reason": "Fallback: procurement approved triggers negotiation"},
@@ -238,6 +342,15 @@ Decide which skill(s) to run and why."""
         elif event_type == "deal_confirmed":
             actions = [
                 {"skill": "customer", "params": event.get("data", {}), "reason": "Fallback: deal confirmed triggers customer outreach"},
+            ]
+        elif event_type == "churn_risk":
+            actions = [
+                {"skill": "customer", "params": event.get("data", {}), "reason": "Fallback: churn risk detected, triggering re-engagement"},
+            ]
+        elif event_type == "expiry_risk":
+            actions = [
+                {"skill": "inventory", "params": event.get("data", {}), "reason": "Fallback: flag expiry risk on dashboard"},
+                {"skill": "customer", "params": {**event.get("data", {}), "discount": "20% off (Flash Sale!)"}, "reason": "Fallback: chain targeted promotion for expiring product"},
             ]
 
         return {"actions": actions, "overall_reasoning": "Fallback rule-based routing (Gemini unavailable)"}

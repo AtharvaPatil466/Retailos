@@ -35,12 +35,45 @@ class InventorySkill(BaseSkill):
         """Check inventory levels, return alerts for items crossing threshold."""
         alerts = []
 
+        # Handle explicit expiry risk
+        if event.get("type") == "expiry_risk":
+            data = event.get("data", {})
+            alert = {
+                "sku": data.get("product_id"),
+                "product_name": data.get("product_name"),
+                "severity": "critical",
+                "days_to_expiry": data.get("days_to_expiry"),
+                "expected_unsold": data.get("expected_unsold"),
+                "reason": f"Expiring in {data.get('days_to_expiry')} days. At current velocity, ~{data.get('expected_unsold')} units will expire."
+            }
+            if self.audit:
+                await self.audit.log(
+                    skill=self.name,
+                    event_type="expiry_risk_detected",
+                    decision=f"Flagged expiry risk for {data.get('product_name')}",
+                    reasoning=alert["reason"],
+                    outcome=json.dumps(alert, default=str),
+                    status="alert",
+                )
+            return {"alerts": [alert]}
+
         # If triggered with a specific SKU update, process just that
         if event.get("type") == "stock_update":
             sku = event["data"].get("sku")
             new_quantity = event["data"].get("quantity")
             item = self._find_item(sku)
             if item:
+                old_qty = item["current_stock"]
+                qty_change = new_quantity - old_qty
+                
+                # Log the movement
+                if qty_change != 0:
+                    movement_type = event["data"].get("movement_type")
+                    if not movement_type:
+                        movement_type = "restock" if qty_change > 0 else "sale"
+                    from brain.wastage_tracker import log_movement
+                    log_movement(sku, qty_change, movement_type)
+
                 item["current_stock"] = new_quantity
                 alert = self._check_item(item)
                 if alert:
@@ -116,12 +149,20 @@ class InventorySkill(BaseSkill):
             })
         return result
 
-    async def update_stock(self, sku: str, quantity: int) -> dict:
+    async def update_stock(self, sku: str, quantity: int, movement_type: str = "") -> dict:
         """Manually update stock for a SKU (used for demo)."""
         item = self._find_item(sku)
         if not item:
             return {"error": f"SKU {sku} not found"}
         old_stock = item["current_stock"]
+        qty_change = quantity - old_stock
+        
+        # Log the movement
+        if qty_change != 0:
+            derived_type = movement_type if movement_type else ("restock" if qty_change > 0 else "sale")
+            from brain.wastage_tracker import log_movement
+            log_movement(sku, qty_change, derived_type)
+            
         item["current_stock"] = quantity
         return {
             "sku": sku,

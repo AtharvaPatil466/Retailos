@@ -97,8 +97,19 @@ class NegotiationSkill(BaseSkill):
         if self.memory:
             relationship = await self.memory.get(f"supplier:{supplier_id}:history") or {}
 
+        # Fetch Market Context
+        from brain.price_monitor import get_market_reference
+        market_ref = get_market_reference(sku)
+        price_context = ""
+        if market_ref.get("median_price"):
+            price_context = (
+                f"Market Reference Constraints: We recently saw this product heavily discounted at ₹{market_ref['lowest_price']} ({market_ref['lowest_source']}). "
+                f"The general market median is ₹{market_ref['median_price']}. "
+                f"If you ask for a price, explicitly mention the ₹{market_ref['lowest_price']} external reference naturally to pressure them downwards!"
+            )
+
         # Draft outreach message using Gemini
-        message = await self._draft_outreach(product_name, top_supplier, relationship)
+        message = await self._draft_outreach(product_name, top_supplier, relationship, price_context)
 
         # Log the outreach as a WhatsApp message
         negotiation_id = f"neg_{sku}_{supplier_id}_{int(time.time())}"
@@ -292,7 +303,7 @@ class NegotiationSkill(BaseSkill):
     def _get_thread(self, negotiation_id: str) -> list[dict]:
         return [m for m in self.message_log if m.get("negotiation_id") == negotiation_id]
 
-    async def _draft_outreach(self, product_name: str, supplier: dict, relationship: dict) -> str:
+    async def _draft_outreach(self, product_name: str, supplier: dict, relationship: dict, price_context: str = "") -> str:
         if not self.client:
             import os
             api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -307,6 +318,7 @@ Draft a WhatsApp message to this supplier:
 Supplier: {supplier.get('supplier_name', 'Unknown')}
 Product needed: {product_name}
 Past relationship: {json.dumps(relationship, default=str) if relationship else 'First time ordering'}
+{price_context}
 
 Write the message only, no explanation."""
 
