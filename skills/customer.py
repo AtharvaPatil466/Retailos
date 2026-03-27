@@ -236,7 +236,7 @@ Write a personalized WhatsApp message."""
 
         try:
             response = await self.client.aio.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt
             )
             return response.text.strip()
@@ -329,7 +329,7 @@ Write a re-engagement WhatsApp message."""
 
         try:
             response = await self.client.aio.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt
             )
             return response.text.strip()

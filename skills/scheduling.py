@@ -99,7 +99,7 @@ Recommendation:
         if self.client:
             try:
                 response = await self.client.aio.models.generate_content(
-                    model="gemini-1.5-flash",
+                    model="gemini-2.0-flash",
                     contents=prompt
                 )
                 report = response.text.strip()

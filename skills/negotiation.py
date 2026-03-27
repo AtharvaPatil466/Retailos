@@ -324,7 +324,7 @@ Write the message only, no explanation."""
 
         try:
             response = await self.client.aio.models.generate_content(
-                model="gemini-1.5-flash",
+                model="gemini-2.0-flash",
                 contents=prompt
             )
             return response.text.strip()
