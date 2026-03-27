@@ -83,12 +83,23 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
         {approvals.map((approval, i) => {
           const result = approval.result || {};
+          const isInventory = approval.skill === "inventory";
           const topSupplier = result.top_supplier || result.parsed || {};
-          const sku = result.sku || (approval.event?.data?.sku);
-          const productName = result.product || result.product_name || "Unknown Product";
+          
+          let sku, productName;
+          if (isInventory) {
+              const alert = result.alerts && result.alerts.length > 0 ? result.alerts[0] : {};
+              sku = alert.sku;
+              productName = alert.product_name || "Unknown Product";
+          } else {
+              sku = result.sku || (approval.event?.data?.sku);
+              productName = result.product || result.product_name || "Unknown Product";
+          }
+          
           const icon = PRODUCT_ICONS[sku] || '📦';
           const negId = result.negotiation_id;
           const thread = negotiations[negId]?.thread || [];
+          const approvalReason = approval.reason || result.approval_reason || "I found a better price for this item!";
 
           return (
             <motion.div
@@ -96,7 +107,7 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="rounded-3xl bg-zinc-900 border border-white/5 overflow-hidden shadow-2xl hover:border-white/10 transition-all"
+              className="rounded-3xl bg-zinc-900 border border-white/5 overflow-hidden shadow-2xl hover:border-white/10 transition-all flex flex-col"
             >
               {/* Header */}
               <div className="p-5 flex items-start gap-4 border-b border-white/5 bg-white/[0.02]">
@@ -104,48 +115,66 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
                 <div className="flex-1 min-w-0">
                   <h3 className="text-lg font-black leading-none mb-1 truncate">{productName}</h3>
                   <p className="text-xs font-bold text-white/40 italic leading-snug">
-                    {approval.reason || "I found a better price for this item!"}
+                    {approvalReason}
                   </p>
                 </div>
               </div>
 
-              {/* Price Comparison */}
-              <div className="p-5 grid grid-cols-2 gap-4 relative">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center z-10">
-                  <ArrowRight size={14} className="text-white/40" />
+              {isInventory ? (
+                <div className="p-5 border-b border-white/5 space-y-4 flex-1">
+                  <div className="flex items-center gap-2 text-amber-500">
+                    <AlertTriangle size={16} />
+                    <span className="text-xs font-black uppercase tracking-widest">Restock Needed</span>
+                  </div>
+                  <div className="text-sm font-medium text-white/70 leading-relaxed">
+                    Stock limit breached. Would you like to launch the autonomous agents to restock this?
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl p-3 text-xs text-white/50 italic border border-white/5 shadow-inner">
+                    <span className="font-bold text-emerald-400 not-italic mr-1">Action:</span> 
+                    {result.approval_details?.action_plan || "Trigger autonomous procurement flow to find the best supplier."}
+                  </div>
                 </div>
+              ) : (
+                <div className="flex-1">
+                  {/* Price Comparison */}
+                  <div className="p-5 grid grid-cols-2 gap-4 relative">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center z-10">
+                      <ArrowRight size={14} className="text-white/40" />
+                    </div>
 
-                <div className="space-y-1">
-                  <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Usual Price</div>
-                  <div className="text-xl font-black text-white/40 line-through">₹195</div>
-                  <div className="text-[10px] font-bold text-white/40">From MegaMart</div>
-                </div>
+                    <div className="space-y-1">
+                      <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Usual Price</div>
+                      <div className="text-xl font-black text-white/40 line-through">₹195</div>
+                      <div className="text-[10px] font-bold text-white/40">From MegaMart</div>
+                    </div>
 
-                <div className="space-y-1 text-right">
-                  <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-1"> ✨ New Best Price</div>
-                  <div className="text-2xl font-black text-emerald-400 tracking-tight leading-none mb-1">₹{topSupplier.price_per_unit || '---'}</div>
-                  <div className="text-[10px] font-bold text-emerald-400/60">You save ₹2,500!</div>
-                </div>
-              </div>
+                    <div className="space-y-1 text-right">
+                      <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-1"> ✨ New Best Price</div>
+                      <div className="text-2xl font-black text-emerald-400 tracking-tight leading-none mb-1">₹{topSupplier.price_per_unit || '---'}</div>
+                      <div className="text-[10px] font-bold text-emerald-400/60">You save ₹2,500!</div>
+                    </div>
+                  </div>
 
-              {/* Supplier Stats */}
-              <div className="px-5 pb-5 grid grid-cols-3 gap-2">
-                <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                  <ShieldCheck size={14} className="text-blue-400 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Trust</span>
-                  <span className="text-[12px] font-black mt-0.5 leading-none">94%</span>
+                  {/* Supplier Stats */}
+                  <div className="px-5 pb-5 grid grid-cols-3 gap-2">
+                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
+                      <ShieldCheck size={14} className="text-blue-400 mb-1" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Trust</span>
+                      <span className="text-[12px] font-black mt-0.5 leading-none">94%</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
+                      <Clock size={14} className="text-amber-400 mb-1" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Wait</span>
+                      <span className="text-[12px] font-black mt-0.5 leading-none">1 Day</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
+                      <TrendingUp size={14} className="text-emerald-400 mb-1" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Quality</span>
+                      <span className="text-[12px] font-black mt-0.5 leading-none">AA+</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                  <Clock size={14} className="text-amber-400 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Wait</span>
-                  <span className="text-[12px] font-black mt-0.5 leading-none">1 Day</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                  <TrendingUp size={14} className="text-emerald-400 mb-1" />
-                  <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Quality</span>
-                  <span className="text-[12px] font-black mt-0.5 leading-none">AA+</span>
-                </div>
-              </div>
+              )}
 
               {/* Negotiation Thread */}
               {negId && (

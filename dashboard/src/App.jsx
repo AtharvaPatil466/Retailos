@@ -7,7 +7,8 @@ import {
   Bell,
   ArrowRight,
   RefreshCw,
-  Zap
+  Zap,
+  Package
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Sidebar';
@@ -15,6 +16,7 @@ import HomeTab from './components/HomeTab';
 import ApprovalsTab from './components/ApprovalsTab';
 import WhatHappenedTab from './components/WhatHappenedTab';
 import AgentsTab from './components/AgentsTab';
+import InventoryTab from './components/InventoryTab';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -83,6 +85,7 @@ export default function App() {
 
   const mobileTabs = [
     { id: 'home', label: 'HOME', icon: LayoutDashboard },
+    { id: 'inventory', label: 'INVENTORY', icon: Package },
     { id: 'approvals', label: 'APPROVALS', icon: CheckCircle2, badge: approvals.length },
     { id: 'history', label: 'HISTORY', icon: History },
     { id: 'agents', label: 'AGENTS', icon: Users },
@@ -148,12 +151,13 @@ export default function App() {
       <header className="hidden lg:flex fixed top-0 left-64 right-0 z-40 h-16 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5 items-center justify-between px-8">
         <div>
           <h2 className="text-lg font-black capitalize tracking-tight">
-            {activeTab === 'home' ? 'Dashboard' : activeTab === 'history' ? 'What Happened' : activeTab === 'agents' ? 'My Agents' : 'Approvals'}
+            {activeTab === 'home' ? 'Dashboard' : activeTab === 'history' ? 'What Happened' : activeTab === 'agents' ? 'My Agents' : activeTab === 'inventory' ? 'Inventory' : 'Approvals'}
           </h2>
           <p className="text-[11px] text-white/30 font-medium -mt-0.5">
             {activeTab === 'home' ? 'Real-time overview of your store operations' : 
              activeTab === 'approvals' ? `${approvals.length} pending decisions` :
              activeTab === 'history' ? 'Complete audit trail of every action' :
+             activeTab === 'inventory' ? 'Real-time stock levels and alerts' :
              'Your autonomous agent workforce'}
           </p>
         </div>
@@ -213,6 +217,9 @@ export default function App() {
                   agents={agents} 
                   onRefresh={fetchData}
                 />
+              )}
+              {activeTab === 'inventory' && (
+                <InventoryTab />
               )}
             </motion.div>
           </AnimatePresence>

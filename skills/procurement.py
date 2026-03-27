@@ -127,11 +127,16 @@ class ProcurementSkill(BaseSkill):
             for supplier in matching_suppliers:
                 sid = supplier["supplier_id"]
                 history = await self.memory.get(f"supplier:{sid}:history")
+                if isinstance(history, str):
+                    try:
+                        history = json.loads(history)
+                    except Exception:
+                        history = {}
                 
                 from brain.context_builder import get_supplier_context
                 trust_context = get_supplier_context(sid)
                 
-                if history:
+                if history and isinstance(history, dict):
                     history["trust_data"] = trust_context
                     memory_context[sid] = history
                 else:

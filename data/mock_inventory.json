@@ -498,5 +498,15 @@
     "daily_sales_rate": 16,
     "unit_price": 30,
     "last_restock_date": "2026-03-20"
+  },
+  {
+    "sku": "SKU-051",
+    "product_name": "Oreo Chocolate Sandwich Cookies (120g)",
+    "category": "Snacks",
+    "current_stock": 150,
+    "reorder_threshold": 50,
+    "daily_sales_rate": 18,
+    "unit_price": 40,
+    "last_restock_date": "2026-03-26"
   }
 ]

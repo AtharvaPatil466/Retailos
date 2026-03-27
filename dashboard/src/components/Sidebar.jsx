@@ -7,12 +7,14 @@ import {
   Users, 
   Zap,
   Wifi,
-  WifiOff
+  WifiOff,
+  Package
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, approvalCount, isConnected }) {
   const navItems = [
     { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: approvalCount },
     { id: 'history', label: 'What Happened', icon: History },
     { id: 'agents', label: 'My Agents', icon: Users },

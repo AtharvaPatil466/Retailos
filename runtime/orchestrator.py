@@ -56,36 +56,18 @@ class Orchestrator:
         self,
         memory: Memory,
         audit: AuditLogger,
-        # skill_loader: SkillLoader, # Removed SkillLoader
+        skills: dict[str, BaseSkill],
         api_key: str,
     ):
         self.memory = memory
         self.audit = audit
-        # self.skill_loader = skill_loader # Removed SkillLoader
+        self.skills = skills
         self.client = genai.Client(api_key=api_key) if api_key else None
         self.event_queue: asyncio.Queue = asyncio.Queue()
         self.running = False
         self.pending_approvals: dict[str, dict] = {}
         self.max_retries = 3
         self.retry_delay = 2  # seconds
-
-        # Manually load core skills
-        from skills.inventory import InventorySkill
-        from skills.procurement import ProcurementSkill
-        from skills.customer import CustomerSkill
-        from skills.analytics import AnalyticsSkill
-        from skills.negotiation import NegotiationSkill
-        from skills.scheduling import SchedulingSkill
-        
-        skill_classes = [
-            InventorySkill, ProcurementSkill, CustomerSkill, 
-            AnalyticsSkill, NegotiationSkill, SchedulingSkill
-        ]
-        
-        self.skills: dict[str, BaseSkill] = {}
-        for skill_class in skill_classes:
-            skill_instance = skill_class(memory=self.memory, audit=self.audit)
-            self.skills[skill_instance.name] = skill_instance
 
     async def start(self) -> None:
         """Start the orchestrator event loop."""
@@ -323,9 +305,13 @@ Decide which skill(s) to run and why."""
         event_type = event.get("type", "")
         actions = []
 
-        if event_type == "low_stock" or event_type == "stock_update":
+        if event_type == "start_procurement":
             actions = [
-                {"skill": "procurement", "params": event.get("data", {}), "reason": "Fallback: stock level change triggers procurement check"},
+                {"skill": "procurement", "params": event.get("data", {}), "reason": "Fallback: start procurement process"},
+            ]
+        elif event_type == "low_stock" or event_type == "stock_update" or event_type == "inventory_check":
+            actions = [
+                {"skill": "inventory", "params": event.get("data", {}), "reason": "Fallback: stock level change triggers inventory check"},
             ]
         elif event_type == "seasonal_preempt":
             actions = [

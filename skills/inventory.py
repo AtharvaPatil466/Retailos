@@ -101,7 +101,33 @@ class InventorySkill(BaseSkill):
                     status="alert",
                 )
 
-        return {"alerts": alerts, "total_checked": len(self.inventory_data)}
+        result = {"alerts": alerts, "total_checked": len(self.inventory_data)}
+        
+        # Only create approval if explicitly updated, to prevent infinite loops of auto-checks
+        if alerts and event.get("type") in ["stock_update", "inventory_check"]:
+            main_alert = alerts[0]
+            result.update({
+                "needs_approval": True,
+                "approval_id": f"restock_{main_alert['sku']}_{int(time.time())}",
+                "approval_reason": f"Low Stock Alert: {main_alert['product_name']} only has {main_alert['current_stock']} units left. Approve AI restock sequence?",
+                "approval_details": {
+                    "product": main_alert["product_name"],
+                    "current_stock": main_alert["current_stock"],
+                    "threshold": main_alert["threshold"],
+                    "action_plan": "Approve to unleash the Procurement and Negotiation agents to find the best supplier and secure a deal."
+                },
+                "on_approval_event": {
+                    "type": "start_procurement",
+                    "data": {
+                        "product_name": main_alert["product_name"],
+                        "sku": main_alert["sku"],
+                        "category": main_alert.get("category", ""),
+                        "daily_sales_rate": main_alert.get("daily_sales_rate", 10)
+                    }
+                }
+            })
+            
+        return result
 
     def _find_item(self, sku: str) -> dict | None:
         for item in self.inventory_data:
