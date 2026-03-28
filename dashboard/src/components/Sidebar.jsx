@@ -8,95 +8,92 @@ import {
   Zap,
   Wifi,
   WifiOff,
-  Package
+  Package,
+  FolderKanban,
+  Briefcase,
+  ShoppingCart
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, approvalCount, isConnected }) {
   const navItems = [
-    { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'home', label: 'Overview', icon: LayoutDashboard },
+    { id: 'plans', label: 'Plans', icon: FolderKanban },
     { id: 'inventory', label: 'Inventory', icon: Package },
+    { id: 'cart', label: 'Cart', icon: ShoppingCart },
+    { id: 'workspace', label: 'Workspace', icon: Briefcase },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: approvalCount },
-    { id: 'history', label: 'What Happened', icon: History },
-    { id: 'agents', label: 'My Agents', icon: Users },
+    { id: 'history', label: 'Activity', icon: History },
+    { id: 'agents', label: 'Agents', icon: Users },
   ];
 
   return (
-    <aside className="hidden lg:flex lg:flex-col fixed top-0 left-0 bottom-0 w-64 bg-[#0a0a0a] border-r border-white/5 z-50">
-      {/* Brand */}
-      <div className="px-6 pt-8 pb-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Zap size={20} className="text-white" />
+    <aside className="hidden">
+      <div className="rounded-[28px] border border-black/5 bg-white/55 p-5 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-700 to-amber-700 text-white shadow-lg shadow-teal-900/15">
+            <Zap size={18} className="text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-black tracking-tight text-white">RetailOS</h1>
-            <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Autonomous Runtime</p>
+            <h1 className="font-display text-lg font-bold tracking-tight text-stone-900">RetailOS</h1>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-stone-500">Navigation</p>
           </div>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-3 space-y-1">
-        <div className="px-3 mb-4">
-          <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.2em]">Navigation</span>
-        </div>
-        {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all relative group ${
-              activeTab === item.id 
-                ? 'bg-white/[0.08] text-white shadow-lg shadow-black/20' 
-                : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
-            }`}
-          >
-            {activeTab === item.id && (
-              <motion.div
-                layoutId="sidebarActive"
-                className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-500 rounded-r-full"
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              />
+        <nav className="space-y-1">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition-all relative group ${
+                activeTab === item.id 
+                  ? 'bg-stone-900 text-white shadow-lg shadow-stone-900/10' 
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-black/[0.04]'
+              }`}
+            >
+              {activeTab === item.id && (
+                <motion.div
+                  layoutId="sidebarActive"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 h-7 w-1 rounded-r-full bg-amber-600"
+                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                />
+              )}
+              <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+              <span>{item.label}</span>
+              {item.badge > 0 && (
+                <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="mt-6 space-y-4">
+          <div className="flex items-center gap-3 rounded-2xl border border-black/5 bg-black/[0.03] px-4 py-3">
+            {isConnected ? (
+              <>
+                <div className="relative">
+                  <Wifi size={14} className="text-emerald-600" />
+                  <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 opacity-50 animate-ping" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-emerald-700">Connected</div>
+                  <div className="text-[10px] text-stone-500">Real-time updates active</div>
+                </div>
+              </>
+            ) : (
+              <>
+                <WifiOff size={14} className="text-red-600" />
+                <div>
+                  <div className="text-xs font-bold text-red-700">Disconnected</div>
+                  <div className="text-[10px] text-stone-500">Reconnecting...</div>
+                </div>
+              </>
             )}
-            <item.icon size={18} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-            <span>{item.label}</span>
-            {item.badge > 0 && (
-              <span className="ml-auto bg-red-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-                {item.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-
-      {/* Footer */}
-      <div className="px-4 pb-6 space-y-4">
-        {/* Connection Status */}
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5">
-          {isConnected ? (
-            <>
-              <div className="relative">
-                <Wifi size={14} className="text-green-400" />
-                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full animate-ping opacity-50" />
-              </div>
-              <div>
-                <div className="text-xs font-bold text-green-400">Connected</div>
-                <div className="text-[10px] text-white/20">Real-time updates active</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <WifiOff size={14} className="text-red-400" />
-              <div>
-                <div className="text-xs font-bold text-red-400">Disconnected</div>
-                <div className="text-[10px] text-white/20">Reconnecting...</div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Version */}
-        <div className="text-center">
-          <span className="text-[10px] font-bold text-white/10 tracking-widest">v1.0.0 · RetailOS</span>
+          </div>
+          <div className="text-center">
+            <span className="text-[10px] font-bold tracking-[0.18em] text-stone-400">v1.0.0 · RetailOS</span>
+          </div>
         </div>
       </div>
     </aside>

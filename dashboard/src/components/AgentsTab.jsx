@@ -85,13 +85,12 @@ export default function AgentsTab({ agents, onRefresh }) {
   return (
     <div className="space-y-6 lg:space-y-8">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-xs font-black text-white/40 uppercase tracking-widest">Your RetailOS Team</h2>
-        <div className="text-[10px] font-bold text-white/20 uppercase tracking-tighter">
+        <h2 className="text-xs font-black uppercase tracking-widest text-stone-500">Your RetailOS Team</h2>
+        <div className="text-[10px] font-bold uppercase tracking-tighter text-stone-500">
           {Object.keys(AGENTS).length} Active Agents
         </div>
       </div>
 
-      {/* Agent Grid: 1 col mobile, 2 cols desktop, 3 cols xl */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-5">
         {Object.entries(AGENTS).map(([key, config], i) => {
           const status = agents.find(a => a.name === key)?.status || 'stopped';
@@ -103,40 +102,38 @@ export default function AgentsTab({ agents, onRefresh }) {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className={`p-5 lg:p-6 rounded-3xl bg-zinc-900/50 border border-white/5 relative overflow-hidden group hover:border-white/10 transition-all`}
+              className="group relative overflow-hidden rounded-[30px] border border-black/5 bg-[rgba(255,252,247,0.92)] p-5 text-stone-900 shadow-[0_20px_55px_rgba(0,0,0,0.06)] transition-all hover:bg-white lg:p-6"
             >
-              {/* Subtle gradient overlay */}
               <div className={`absolute inset-0 bg-gradient-to-br ${config.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
 
               <div className="flex gap-4 items-start relative z-10">
-                <div className={`w-12 h-12 lg:w-14 lg:h-14 rounded-2xl ${config.bg} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+                <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${config.bg} shadow-sm lg:h-14 lg:w-14`}>
                   <config.icon size={24} className={config.color} />
                 </div>
                 
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-[15px] lg:text-[16px] font-black leading-none">{config.name}</h3>
-                    <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-black/40 border border-white/5`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${isRunning ? 'bg-green-400 animate-pulse' : 'bg-white/20'}`} />
-                      <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                        {isRunning ? '✅ Working' : '⏸️ Paused'}
+                    <h3 className="text-[15px] font-black leading-none text-stone-900 lg:text-[16px]">{config.name}</h3>
+                    <div className="flex items-center gap-1.5 rounded-full border border-black/10 bg-white/85 px-2 py-0.5">
+                      <div className={`h-1.5 w-1.5 rounded-full ${isRunning ? 'bg-emerald-600 animate-pulse' : 'bg-stone-400'}`} />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-stone-500">
+                        {isRunning ? 'Working' : 'Paused'}
                       </span>
                     </div>
                   </div>
                   
-                  <p className="text-[11px] lg:text-[12px] font-medium text-white/50 leading-tight">
+                  <p className="text-[11px] font-medium leading-tight text-stone-600 lg:text-[12px]">
                     {config.role}
                   </p>
                 </div>
               </div>
 
-              {/* Stats Footer */}
-              <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between relative z-10">
+              <div className="relative z-10 mt-4 flex items-center justify-between border-t border-black/5 pt-4">
                 <div className="flex items-center gap-4">
                   <div className="space-y-0.5">
-                    <div className="text-[8px] font-black text-white/20 uppercase tracking-widest">Today's Work</div>
-                    <div className="text-[11px] font-black flex items-center gap-1">
-                      <Zap size={10} className="text-blue-400" />
+                    <div className="text-[8px] font-black uppercase tracking-widest text-stone-500">Today's Work</div>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-stone-900">
+                      <Zap size={10} className="text-teal-700" />
                       {key === 'inventory' ? '720 checks' : 
                        key === 'procurement' ? '8 suppliers found' :
                        key === 'negotiation' ? '4 deals closed' : 
@@ -145,10 +142,10 @@ export default function AgentsTab({ agents, onRefresh }) {
                        'No alerts today'}
                     </div>
                   </div>
-                  <div className="w-px h-6 bg-white/5" />
+                  <div className="h-6 w-px bg-black/8" />
                   <div className="space-y-0.5">
-                    <div className="text-[8px] font-black text-white/20 uppercase tracking-widest">Efficiency</div>
-                    <div className="text-[11px] font-black text-white/60">98.2%</div>
+                    <div className="text-[8px] font-black uppercase tracking-widest text-stone-500">Efficiency</div>
+                    <div className="text-[11px] font-black text-stone-700">98.2%</div>
                   </div>
                 </div>
 
@@ -156,8 +153,8 @@ export default function AgentsTab({ agents, onRefresh }) {
                   onClick={() => toggleAgent(key, status)}
                   className={`p-2.5 rounded-xl border transition-all ${
                     isRunning 
-                      ? 'border-white/5 hover:bg-white/5 text-white/40 hover:text-white' 
-                      : 'border-green-500 text-green-500 hover:bg-green-500/10'
+                      ? 'border-black/10 bg-white/85 text-stone-500 hover:bg-white hover:text-stone-900' 
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                   }`}
                 >
                   {isRunning ? <Pause size={14} /> : <Play size={14} />}
@@ -168,13 +165,12 @@ export default function AgentsTab({ agents, onRefresh }) {
         })}
       </div>
 
-      {/* Demo Trigger */}
       <div className="pt-6 lg:pt-10 pb-4 flex flex-col items-center gap-4">
-        <div className="text-[10px] font-black text-white/10 uppercase tracking-[0.3em] italic">Advanced Control</div>
+        <div className="text-[10px] font-black uppercase tracking-[0.3em] italic text-stone-400">Advanced Control</div>
         <button
           onClick={triggerDemo}
           disabled={isTriggering}
-          className="px-6 py-3 rounded-2xl bg-white/5 border border-white/5 text-white/20 hover:text-white hover:border-white/10 hover:bg-white/10 transition-all font-black text-[10px] uppercase tracking-widest disabled:opacity-50 flex items-center gap-2"
+          className="flex items-center gap-2 rounded-2xl border border-black/10 bg-white/85 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-stone-700 transition-all hover:bg-white hover:text-stone-900 disabled:opacity-50"
         >
           {isTriggering ? '🚀 Launching...' : '🚀 Launch Low Stock Demo'}
         </button>

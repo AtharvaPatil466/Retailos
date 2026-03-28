@@ -19,11 +19,13 @@ class InventorySkill(BaseSkill):
         super().__init__(name="inventory", memory=memory, audit=audit)
         self.inventory_data: list[dict] = []
         self.check_interval = 60  # seconds
+        self.inventory_path = BASE_DIR / "data" / "mock_inventory.json"
 
     async def init(self) -> None:
         try:
-            with open(BASE_DIR / "data" / "mock_inventory.json", "r") as f:
-                self.inventory_data = json.load(f)
+            with open(self.inventory_path, "r") as f:
+                raw_inventory = json.load(f)
+                self.inventory_data = [self._normalize_item(item) for item in raw_inventory]
         except FileNotFoundError:
             self.inventory_data = []
         self.state = SkillState.RUNNING
@@ -135,6 +137,27 @@ class InventorySkill(BaseSkill):
                 return item
         return None
 
+    def _normalize_item(self, item: dict) -> dict:
+        normalized = dict(item)
+        normalized["image_url"] = normalized.get("image_url")
+        normalized["barcode"] = normalized.get("barcode")
+        normalized["unit_price"] = float(normalized.get("unit_price", 0))
+        normalized["category"] = normalized.get("category", "")
+        normalized["reorder_threshold"] = normalized.get("reorder_threshold", normalized.get("threshold", 0))
+        normalized["threshold"] = normalized["reorder_threshold"]
+        return normalized
+
+    def _save_inventory(self) -> None:
+        serialized = []
+        for item in self.inventory_data:
+            stored_item = dict(item)
+            stored_item.pop("threshold", None)
+            serialized.append(stored_item)
+
+        with open(self.inventory_path, "w") as f:
+            json.dump(serialized, f, indent=2)
+            f.write("\n")
+
     def _check_item(self, item: dict) -> dict | None:
         """Check if item needs restocking based on stock level AND sales velocity."""
         current = item.get("current_stock", 0)
@@ -156,6 +179,8 @@ class InventorySkill(BaseSkill):
                 "days_until_stockout": days_until_stockout,
                 "last_restock_date": item.get("last_restock_date", "unknown"),
                 "unit_price": item.get("unit_price", 0),
+                "image_url": item.get("image_url"),
+                "barcode": item.get("barcode"),
                 "severity": "critical" if days_until_stockout < 2 else "warning",
             }
 
@@ -170,12 +195,21 @@ class InventorySkill(BaseSkill):
             days_left = current / daily_rate if daily_rate > 0 else float("inf")
             result.append({
                 **item,
+                "threshold": item.get("reorder_threshold", item.get("threshold", 0)),
                 "days_until_stockout": round(float(days_left), 1),
                 "status": "critical" if days_left < 2 else "warning" if days_left < 5 else "ok",
             })
         return result
 
-    async def update_stock(self, sku: str, quantity: int, movement_type: str = "") -> dict:
+    async def update_stock(
+        self,
+        sku: str,
+        quantity: int,
+        movement_type: str = "",
+        unit_price: float | None = None,
+        image_url: str | None = None,
+        category: str | None = None,
+    ) -> dict:
         """Manually update stock for a SKU (used for demo)."""
         item = self._find_item(sku)
         if not item:
@@ -190,9 +224,116 @@ class InventorySkill(BaseSkill):
             log_movement(sku, qty_change, derived_type)
             
         item["current_stock"] = quantity
+        if unit_price is not None:
+            item["unit_price"] = float(unit_price)
+        if image_url is not None:
+            item["image_url"] = image_url
+        if category is not None:
+            item["category"] = category
+
+        item["threshold"] = item.get("reorder_threshold", item.get("threshold", 0))
+        self._save_inventory()
         return {
             "sku": sku,
             "product_name": item["product_name"],
             "old_stock": old_stock,
             "new_stock": quantity,
+            "unit_price": item.get("unit_price"),
+            "image_url": item.get("image_url"),
+            "category": item.get("category"),
+        }
+
+    async def register_product(self, product: dict[str, Any]) -> dict:
+        sku = product["sku"]
+        if self._find_item(sku):
+            return {"error": f"SKU {sku} already exists"}
+
+        new_item = self._normalize_item({
+            "sku": sku,
+            "product_name": product["product_name"],
+            "category": product["category"],
+            "image_url": product.get("image_url"),
+            "barcode": product.get("barcode"),
+            "current_stock": product.get("current_stock", 0),
+            "reorder_threshold": product["threshold"],
+            "daily_sales_rate": product["daily_sales_rate"],
+            "unit_price": product["unit_price"],
+            "last_restock_date": product.get("last_restock_date", time.strftime("%Y-%m-%d")),
+        })
+
+        self.inventory_data.append(new_item)
+        self._save_inventory()
+        return new_item
+
+    async def patch_item(
+        self,
+        sku: str,
+        *,
+        unit_price: float | None = None,
+        image_url: str | None = None,
+        category: str | None = None,
+        barcode: str | None = None,
+    ) -> dict:
+        item = self._find_item(sku)
+        if not item:
+            return {"error": f"SKU {sku} not found"}
+
+        if unit_price is not None:
+            item["unit_price"] = float(unit_price)
+        if image_url is not None:
+            item["image_url"] = image_url
+        if category is not None:
+            item["category"] = category
+        if barcode is not None:
+            item["barcode"] = barcode
+
+        item["threshold"] = item.get("reorder_threshold", item.get("threshold", 0))
+        self._save_inventory()
+        return item
+
+    async def record_sale(self, items: list[dict[str, Any]]) -> dict:
+        if not items:
+            return {"error": "No sale items provided"}
+
+        sale_lines = []
+        total_amount = 0.0
+
+        for sale_item in items:
+            sku = sale_item["sku"]
+            qty = int(sale_item["qty"])
+            if qty <= 0:
+                return {"error": f"Invalid quantity for SKU {sku}"}
+
+            item = self._find_item(sku)
+            if not item:
+                return {"error": f"SKU {sku} not found"}
+            if item["current_stock"] < qty:
+                return {"error": f"Insufficient stock for SKU {sku}"}
+
+            sale_lines.append((item, qty))
+
+        order_id = f"sale_{int(time.time())}"
+        from brain.wastage_tracker import log_movement
+
+        result_lines = []
+        for item, qty in sale_lines:
+            item["current_stock"] -= qty
+            item["threshold"] = item.get("reorder_threshold", item.get("threshold", 0))
+            line_total = float(item.get("unit_price", 0)) * qty
+            total_amount += line_total
+            log_movement(item["sku"], -qty, "sale", order_id=order_id)
+            result_lines.append({
+                "sku": item["sku"],
+                "product_name": item["product_name"],
+                "qty": qty,
+                "unit_price": float(item.get("unit_price", 0)),
+                "line_total": round(line_total, 2),
+                "remaining_stock": item["current_stock"],
+            })
+
+        self._save_inventory()
+        return {
+            "order_id": order_id,
+            "items": result_lines,
+            "total_amount": round(total_amount, 2),
         }

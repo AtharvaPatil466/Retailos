@@ -60,14 +60,14 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
   if (approvals.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 lg:py-32 text-center space-y-4 px-6">
-        <div className="w-20 h-20 lg:w-24 lg:h-24 bg-emerald-500/10 rounded-full flex items-center justify-center text-emerald-400">
+        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 lg:h-24 lg:w-24">
           <motion.div animate={{ y: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 2 }}>
             <Check size={40} strokeWidth={3} />
           </motion.div>
         </div>
         <div>
-          <h2 className="text-lg lg:text-xl font-black uppercase tracking-tight">Nothing needs your attention</h2>
-          <p className="text-white/40 text-sm lg:text-base font-medium leading-normal mt-1">
+          <h2 className="text-lg lg:text-xl font-black uppercase tracking-tight text-stone-900">Nothing needs your attention</h2>
+          <p className="mt-1 text-sm font-medium leading-normal text-stone-600 lg:text-base">
             RetailOS is monitoring everything for you. Go grab a chai! ☕
           </p>
         </div>
@@ -77,7 +77,7 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xs font-black text-white/40 uppercase tracking-widest px-1">RetailOS needs your decision</h2>
+      <h2 className="px-1 text-xs font-black uppercase tracking-widest text-stone-500">RetailOS needs your decision</h2>
       
       {/* Grid: 1 col mobile, 2 cols desktop */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
@@ -107,81 +107,77 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.1 }}
-              className="rounded-3xl bg-zinc-900 border border-white/5 overflow-hidden shadow-2xl hover:border-white/10 transition-all flex flex-col"
+              className="flex flex-col overflow-hidden rounded-[30px] border border-black/5 bg-[rgba(255,252,247,0.92)] text-stone-900 shadow-[0_20px_55px_rgba(0,0,0,0.06)] transition-all hover:bg-white"
             >
-              {/* Header */}
-              <div className="p-5 flex items-start gap-4 border-b border-white/5 bg-white/[0.02]">
+              <div className="flex items-start gap-4 border-b border-black/5 bg-white/75 p-5">
                 <span className="text-4xl">{icon}</span>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-black leading-none mb-1 truncate">{productName}</h3>
-                  <p className="text-xs font-bold text-white/40 italic leading-snug">
+                  <h3 className="mb-1 truncate text-lg font-black leading-none text-stone-900">{productName}</h3>
+                  <p className="text-xs font-bold italic leading-snug text-stone-600">
                     {approvalReason}
                   </p>
                 </div>
               </div>
 
               {isInventory ? (
-                <div className="p-5 border-b border-white/5 space-y-4 flex-1">
-                  <div className="flex items-center gap-2 text-amber-500">
+                <div className="flex-1 space-y-4 border-b border-black/5 p-5">
+                  <div className="flex items-center gap-2 text-amber-700">
                     <AlertTriangle size={16} />
                     <span className="text-xs font-black uppercase tracking-widest">Restock Needed</span>
                   </div>
-                  <div className="text-sm font-medium text-white/70 leading-relaxed">
+                  <div className="text-sm font-medium leading-relaxed text-stone-700">
                     Stock limit breached. Would you like to launch the autonomous agents to restock this?
                   </div>
-                  <div className="bg-white/[0.03] rounded-xl p-3 text-xs text-white/50 italic border border-white/5 shadow-inner">
-                    <span className="font-bold text-emerald-400 not-italic mr-1">Action:</span> 
+                  <div className="rounded-xl border border-black/5 bg-white/85 p-3 text-xs italic text-stone-600 shadow-sm">
+                    <span className="mr-1 font-bold not-italic text-emerald-700">Action:</span> 
                     {result.approval_details?.action_plan || "Trigger autonomous procurement flow to find the best supplier."}
                   </div>
                 </div>
               ) : (
                 <div className="flex-1">
-                  {/* Price Comparison */}
                   <div className="p-5 grid grid-cols-2 gap-4 relative">
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center z-10">
-                      <ArrowRight size={14} className="text-white/40" />
+                    <div className="absolute left-1/2 top-1/2 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/10 bg-stone-100">
+                      <ArrowRight size={14} className="text-stone-500" />
                     </div>
 
                     <div className="space-y-1">
-                      <div className="text-[10px] font-black text-white/40 uppercase tracking-widest">Usual Price</div>
-                      <div className="text-xl font-black text-white/40 line-through">₹195</div>
-                      <div className="text-[10px] font-bold text-white/40">From MegaMart</div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-stone-500">Usual Price</div>
+                      <div className="text-xl font-black text-stone-500 line-through">₹195</div>
+                      <div className="text-[10px] font-bold text-stone-500">From MegaMart</div>
                     </div>
 
                     <div className="space-y-1 text-right">
-                      <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mb-1"> ✨ New Best Price</div>
-                      <div className="text-2xl font-black text-emerald-400 tracking-tight leading-none mb-1">₹{topSupplier.price_per_unit || '---'}</div>
-                      <div className="text-[10px] font-bold text-emerald-400/60">You save ₹2,500!</div>
+                      <div className="mb-1 text-[10px] font-black uppercase tracking-widest leading-none text-emerald-700">New Best Price</div>
+                      <div className="mb-1 text-2xl font-black leading-none tracking-tight text-emerald-700">₹{topSupplier.price_per_unit || '---'}</div>
+                      <div className="text-[10px] font-bold text-emerald-700/70">You save ₹2,500!</div>
                     </div>
                   </div>
 
-                  {/* Supplier Stats */}
                   <div className="px-5 pb-5 grid grid-cols-3 gap-2">
-                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                      <ShieldCheck size={14} className="text-blue-400 mb-1" />
-                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Trust</span>
-                      <span className="text-[12px] font-black mt-0.5 leading-none">94%</span>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-black/5 bg-white/85 p-2.5 text-center shadow-sm">
+                      <ShieldCheck size={14} className="mb-1 text-teal-700" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter leading-none text-stone-500">Trust</span>
+                      <span className="mt-0.5 text-[12px] font-black leading-none text-stone-900">94%</span>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                      <Clock size={14} className="text-amber-400 mb-1" />
-                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Wait</span>
-                      <span className="text-[12px] font-black mt-0.5 leading-none">1 Day</span>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-black/5 bg-white/85 p-2.5 text-center shadow-sm">
+                      <Clock size={14} className="mb-1 text-amber-700" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter leading-none text-stone-500">Wait</span>
+                      <span className="mt-0.5 text-[12px] font-black leading-none text-stone-900">1 Day</span>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/5 flex flex-col items-center justify-center text-center">
-                      <TrendingUp size={14} className="text-emerald-400 mb-1" />
-                      <span className="text-[9px] font-black uppercase tracking-tighter text-white/40 leading-none">Quality</span>
-                      <span className="text-[12px] font-black mt-0.5 leading-none">AA+</span>
+                    <div className="flex flex-col items-center justify-center rounded-xl border border-black/5 bg-white/85 p-2.5 text-center shadow-sm">
+                      <TrendingUp size={14} className="mb-1 text-emerald-700" />
+                      <span className="text-[9px] font-black uppercase tracking-tighter leading-none text-stone-500">Quality</span>
+                      <span className="mt-0.5 text-[12px] font-black leading-none text-stone-900">AA+</span>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Negotiation Thread */}
               {negId && (
-                <div className="border-t border-white/5">
+                <div className="border-t border-black/5">
                   <button 
                     onClick={() => toggleThread(approval.id)}
-                    className="w-full p-4 flex items-center justify-between text-white/40 hover:text-white transition-colors group"
+                    className="group flex w-full items-center justify-between p-4 text-stone-600 transition-colors hover:text-stone-900"
                   >
                     <div className="flex items-center gap-2">
                       <MessageCircle size={16} />
@@ -196,18 +192,18 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden bg-black/40 px-4 pb-4"
+                        className="overflow-hidden bg-stone-50 px-4 pb-4"
                       >
                         <div className="pt-2 flex flex-col gap-3">
                           {thread.map((msg, mid) => (
                             <div key={mid} className={`flex flex-col ${msg.direction === 'outbound' ? 'items-end' : 'items-start'}`}>
-                              <div className="text-[8px] font-black text-white/20 uppercase tracking-widest mb-1">
+                              <div className="mb-1 text-[8px] font-black uppercase tracking-widest text-stone-500">
                                 {msg.direction === 'outbound' ? 'RetailOS sent:' : 'Supplier replied:'}
                               </div>
                               <div className={msg.direction === 'outbound' ? 'whatsapp-bubble-out text-[13px] leading-snug' : 'whatsapp-bubble-in text-[13px] leading-snug'}>
                                 {msg.message}
                               </div>
-                              <div className="text-[9px] text-white/20 mt-1 font-medium">
+                              <div className="mt-1 text-[9px] font-medium text-stone-500">
                                 {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </div>
                             </div>
@@ -219,8 +215,7 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="p-4 bg-white/[0.03] flex flex-col lg:flex-row gap-2">
+              <div className="flex flex-col gap-2 bg-stone-50 p-4 lg:flex-row">
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleAction(approval.id, 'approve')}
@@ -232,7 +227,7 @@ export default function ApprovalsTab({ approvals, onRefresh }) {
                 <motion.button
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleAction(approval.id, 'reject')}
-                  className="p-3 text-red-500 font-black text-xs uppercase tracking-widest hover:bg-red-500/10 rounded-xl transition-all lg:w-auto"
+                  className="rounded-xl p-3 text-xs font-black uppercase tracking-widest text-red-700 transition-all hover:bg-red-50 lg:w-auto"
                 >
                   ❌ No, skip
                 </motion.button>

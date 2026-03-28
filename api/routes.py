@@ -39,6 +39,37 @@ class EventPayload(BaseModel):
 class StockUpdatePayload(BaseModel):
     sku: str
     quantity: int
+    unit_price: float | None = None
+    image_url: str | None = None
+    category: str | None = None
+
+
+class InventoryRegisterPayload(BaseModel):
+    sku: str
+    product_name: str
+    unit_price: float
+    category: str
+    image_url: str | None = None
+    barcode: str | None = None
+    threshold: int
+    daily_sales_rate: int
+    current_stock: int = 0
+
+
+class InventoryPatchPayload(BaseModel):
+    unit_price: float | None = None
+    image_url: str | None = None
+    category: str | None = None
+    barcode: str | None = None
+
+
+class SaleItemPayload(BaseModel):
+    sku: str
+    qty: int
+
+
+class InventorySalePayload(BaseModel):
+    items: list[SaleItemPayload]
 
 
 class SupplierReplyPayload(BaseModel):
@@ -148,15 +179,66 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
         if not skill:
             raise HTTPException(status_code=404, detail="Inventory skill not loaded")
 
-        result = await skill.update_stock(payload.sku, payload.quantity)
+        result = await skill.update_stock(
+            payload.sku,
+            payload.quantity,
+            unit_price=payload.unit_price,
+            image_url=payload.image_url,
+            category=payload.category,
+        )
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
 
         await orchestrator.emit_event({
             "type": "stock_update",
-            "data": {"sku": payload.sku, "quantity": payload.quantity},
+            "data": {
+                "sku": payload.sku,
+                "quantity": payload.quantity,
+                "unit_price": payload.unit_price,
+                "image_url": payload.image_url,
+                "category": payload.category,
+            },
         })
 
+        return result
+
+    @app.post("/api/inventory/register")
+    async def register_inventory_product(payload: InventoryRegisterPayload):
+        skill = _get_skill("inventory")
+        if not skill:
+            raise HTTPException(status_code=404, detail="Inventory skill not loaded")
+
+        result = await skill.register_product(payload.model_dump())
+        if "error" in result:
+            raise HTTPException(status_code=409, detail=result["error"])
+        return result
+
+    @app.patch("/api/inventory/{sku}")
+    async def patch_inventory_item(sku: str, payload: InventoryPatchPayload):
+        skill = _get_skill("inventory")
+        if not skill:
+            raise HTTPException(status_code=404, detail="Inventory skill not loaded")
+
+        result = await skill.patch_item(
+            sku,
+            unit_price=payload.unit_price,
+            image_url=payload.image_url,
+            category=payload.category,
+            barcode=payload.barcode,
+        )
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
+
+    @app.post("/api/inventory/sale")
+    async def record_inventory_sale(payload: InventorySalePayload):
+        skill = _get_skill("inventory")
+        if not skill:
+            raise HTTPException(status_code=404, detail="Inventory skill not loaded")
+
+        result = await skill.record_sale([item.model_dump() for item in payload.items])
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
         return result
 
     @app.post("/api/inventory/check")
