@@ -1,17 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  CheckCircle2, 
-  History, 
-  Users, 
+import {
+  LayoutDashboard,
+  CheckCircle2,
+  History,
+  Users,
   Zap,
   Wifi,
   WifiOff,
   Package,
   FolderKanban,
   Briefcase,
-  ShoppingCart
+  ShoppingCart,
+  Truck
 } from 'lucide-react';
 
 export default function Sidebar({ activeTab, setActiveTab, approvalCount, isConnected }) {
@@ -20,6 +21,7 @@ export default function Sidebar({ activeTab, setActiveTab, approvalCount, isConn
     { id: 'plans', label: 'Plans', icon: FolderKanban },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'cart', label: 'Cart', icon: ShoppingCart },
+    { id: 'suppliers', label: 'Suppliers', icon: Truck },
     { id: 'workspace', label: 'Workspace', icon: Briefcase },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: approvalCount },
     { id: 'history', label: 'Activity', icon: History },

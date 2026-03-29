@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  LayoutDashboard, 
-  CheckCircle2, 
-  History, 
-  Users, 
+import {
+  LayoutDashboard,
+  CheckCircle2,
+  History,
+  Users,
   Bell,
   RefreshCw,
   Zap,
@@ -11,7 +11,8 @@ import {
   Briefcase,
   FolderKanban,
   Menu,
-  ShoppingCart
+  ShoppingCart,
+  Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Sidebar';
@@ -23,6 +24,8 @@ import InventoryTab from './components/InventoryTab';
 import CartTab from './components/CartTab';
 import PlansTab from './components/PlansTab';
 import WorkspaceTab from './components/WorkspaceTab';
+import SuppliersTab from './components/SuppliersTab';
+import AlertsPanel from './components/AlertsPanel';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -91,6 +94,8 @@ export default function App() {
       { label: 'Focus area', value: 'Inventory health and supplier savings' },
     ],
   });
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
   const ws = useRef(null);
   const navItems = [
@@ -99,6 +104,7 @@ export default function App() {
     { id: 'workspace', label: 'Workspace', icon: Briefcase },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'cart', label: 'Cart', icon: ShoppingCart },
+    { id: 'suppliers', label: 'Suppliers', icon: Truck },
     { id: 'approvals', label: 'Approvals', icon: CheckCircle2, badge: approvals.length },
     { id: 'history', label: 'Activity', icon: History },
     { id: 'agents', label: 'Agents', icon: Users }
@@ -129,6 +135,14 @@ export default function App() {
       setAgents(statusData.skills || []);
       setApprovals(approvalsData || []);
       setLogs(logsData || []);
+
+      try {
+        const alertsRes = await fetch('/api/alerts?limit=20');
+        const alertsData = await alertsRes.json();
+        const readAlerts = JSON.parse(localStorage.getItem('read_alerts') || '[]');
+        const unread = (alertsData || []).filter((a) => !readAlerts.includes(a.id));
+        setAlertCount(unread.length);
+      } catch { /* ignore */ }
     } catch (error) {
       console.error('Failed to fetch data:', error);
     }
@@ -171,6 +185,10 @@ export default function App() {
     cart: {
       title: 'Cart',
       subtitle: 'Record in-store sales and update stock in one flow',
+    },
+    suppliers: {
+      title: 'Suppliers',
+      subtitle: 'Manage your supplier network and trust scores',
     },
     workspace: {
       title: 'User Workspace',
@@ -251,12 +269,15 @@ export default function App() {
                 <RefreshCw size={16} />
               </button>
               <div className="relative">
-                <button className="rounded-full border border-black/5 bg-white/55 p-3 text-stone-600 transition-all hover:bg-white hover:text-stone-900">
+                <button
+                  onClick={() => setShowAlerts(!showAlerts)}
+                  className="rounded-full border border-black/5 bg-white/55 p-3 text-stone-600 transition-all hover:bg-white hover:text-stone-900"
+                >
                   <Bell size={16} />
                 </button>
-                {approvals.length > 0 && (
+                {alertCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
-                    {approvals.length}
+                    {alertCount}
                   </span>
                 )}
               </div>
@@ -365,6 +386,9 @@ export default function App() {
                 {activeTab === 'cart' && (
                   <CartTab />
                 )}
+                {activeTab === 'suppliers' && (
+                  <SuppliersTab />
+                )}
                 {activeTab === 'workspace' && (
                   <WorkspaceTab
                     plans={plans}
@@ -376,6 +400,13 @@ export default function App() {
           </div>
         </div>
       </main>
+
+      <AlertsPanel
+        open={showAlerts}
+        onClose={() => setShowAlerts(false)}
+        onNavigate={(tab) => { setActiveTab(tab); setShowAlerts(false); }}
+        onAlertCountChange={setAlertCount}
+      />
     </div>
   );
 }

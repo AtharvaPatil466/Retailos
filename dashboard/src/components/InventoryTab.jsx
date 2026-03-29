@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, AlertTriangle, RefreshCw, PackageX, CheckCircle, Search, Plus, Minus, ImagePlus, Link2, X } from 'lucide-react';
+import { Package, AlertTriangle, RefreshCw, PackageX, CheckCircle, Search, Plus, Minus, ImagePlus, Link2, X, ChevronDown, ChevronUp, Megaphone, TrendingDown, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const CATEGORY_OPTIONS = ['Dairy', 'Frozen', 'Snacks', 'Beverages', 'Staples', 'Household', 'Personal Care', 'Other'];
@@ -32,6 +32,190 @@ function getSuggestedSku(category, inventory) {
 
   const nextNumber = (matching.length ? Math.max(...matching) : 0) + 1;
   return `${prefix}-${String(nextNumber).padStart(3, '0')}`;
+}
+
+function ExpiryAlertsBanner() {
+  const [risks, setRisks] = useState([]);
+  const [expanded, setExpanded] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem('expiry_dismissed') || '{}');
+      const now = Date.now();
+      const cleaned = {};
+      for (const [k, v] of Object.entries(stored)) {
+        if (now - v < 24 * 3600 * 1000) cleaned[k] = v;
+      }
+      return cleaned;
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    fetch('/api/inventory/expiry-risks')
+      .then((r) => r.json())
+      .then((data) => setRisks(data || []))
+      .catch(() => {});
+  }, []);
+
+  const handleDismiss = (sku) => {
+    const next = { ...dismissed, [sku]: Date.now() };
+    setDismissed(next);
+    localStorage.setItem('expiry_dismissed', JSON.stringify(next));
+  };
+
+  const handleSendOffer = async (item) => {
+    try {
+      await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'expiry_offer', data: { sku: item.product_id || item.sku, product_name: item.product_name } }),
+      });
+    } catch (err) { console.error(err); }
+  };
+
+  const visible = risks.filter((r) => (r.days_to_expiry <= 5) && !dismissed[r.product_id || r.sku]);
+  if (visible.length === 0) return null;
+
+  return (
+    <div className="rounded-[20px] border border-red-200 bg-red-50 p-4">
+      <button onClick={() => setExpanded(!expanded)} className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={16} className="text-red-600" />
+          <span className="text-sm font-bold text-red-800">
+            {visible.length} item{visible.length > 1 ? 's' : ''} expiring within 5 days
+          </span>
+        </div>
+        {expanded ? <ChevronUp size={16} className="text-red-400" /> : <ChevronDown size={16} className="text-red-400" />}
+      </button>
+      {expanded && (
+        <div className="mt-3 space-y-2">
+          {visible.map((item) => (
+            <div key={item.product_id || item.sku} className="flex items-center justify-between rounded-xl bg-white/80 px-4 py-3">
+              <div>
+                <div className="text-sm font-bold text-stone-900">{item.product_name}</div>
+                <div className="mt-0.5 text-xs text-stone-500">
+                  {item.days_to_expiry} days left &middot; ~{item.expected_unsold} units at risk
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => handleSendOffer(item)} className="flex items-center gap-1 rounded-lg bg-amber-600 px-3 py-1.5 text-[10px] font-bold text-white hover:bg-amber-500">
+                  <Megaphone size={12} /> Send Offer
+                </button>
+                <button onClick={() => handleDismiss(item.product_id || item.sku)} className="rounded-lg border border-black/10 px-3 py-1.5 text-[10px] font-bold text-stone-500 hover:bg-stone-100">
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MarketIntelSection({ sku, unitPrice }) {
+  const [expanded, setExpanded] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logForm, setLogForm] = useState({ source_name: '', price_per_unit: '', unit: 'kg' });
+  const [saving, setSaving] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/market-prices/${sku}`);
+      const d = await res.json();
+      setData(d);
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
+  };
+
+  const handleToggle = () => {
+    if (!expanded && !data) fetchData();
+    setExpanded(!expanded);
+  };
+
+  const handleLog = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await fetch('/api/market-prices/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: sku, source_name: logForm.source_name, price_per_unit: Number(logForm.price_per_unit), unit: logForm.unit }),
+      });
+      setShowLogForm(false);
+      setLogForm({ source_name: '', price_per_unit: '', unit: 'kg' });
+      fetchData();
+    } catch (err) { console.error(err); }
+    finally { setSaving(false); }
+  };
+
+  const delta = data?.median_price && unitPrice ? ((unitPrice - data.median_price) / data.median_price * 100).toFixed(1) : null;
+  const isExpensive = delta && Number(delta) > 10;
+
+  return (
+    <div className="mt-3 border-t border-black/5 pt-3">
+      <button onClick={handleToggle} className="flex w-full items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5 font-bold text-teal-700">
+          <TrendingUp size={12} />
+          Market Intel
+        </span>
+        {expanded ? <ChevronUp size={12} className="text-stone-400" /> : <ChevronDown size={12} className="text-stone-400" />}
+      </button>
+      {expanded && (
+        <div className="mt-2 space-y-2">
+          {loading && <div className="animate-pulse rounded-xl bg-stone-100 py-3 text-center text-xs text-stone-400">Loading...</div>}
+          {data && data.median_price != null && (
+            <div className="rounded-xl bg-stone-50 p-3 text-xs">
+              <div className="flex justify-between">
+                <span className="text-stone-500">Market median</span>
+                <span className="font-bold text-stone-900">Rs {data.median_price}</span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-stone-500">Lowest seen</span>
+                <span className="font-bold text-stone-900">Rs {data.lowest_price} <span className="font-normal text-stone-400">({data.lowest_source})</span></span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-stone-500">Your sell price</span>
+                <span className={`font-bold ${isExpensive ? 'text-red-600' : 'text-emerald-700'}`}>
+                  Rs {unitPrice} {delta && <span className="text-[10px]">({delta > 0 ? '+' : ''}{delta}%)</span>}
+                </span>
+              </div>
+              <div className="mt-1 flex justify-between">
+                <span className="text-stone-500">Confidence</span>
+                <span className={`font-bold ${data.confidence === 'high' ? 'text-emerald-600' : data.confidence === 'medium' ? 'text-amber-600' : 'text-stone-400'}`}>
+                  {data.confidence}
+                </span>
+              </div>
+            </div>
+          )}
+          {data && data.median_price == null && !loading && (
+            <div className="rounded-xl bg-stone-50 p-3 text-center text-xs text-stone-400">No market data yet</div>
+          )}
+          {!showLogForm ? (
+            <button onClick={() => setShowLogForm(true)} className="w-full rounded-xl border border-dashed border-black/10 py-2 text-[10px] font-bold uppercase tracking-widest text-stone-500 hover:bg-stone-50">
+              + Log Competitor Price
+            </button>
+          ) : (
+            <form onSubmit={handleLog} className="space-y-2 rounded-xl border border-black/10 bg-white p-3">
+              <input required value={logForm.source_name} onChange={(e) => setLogForm(p => ({ ...p, source_name: e.target.value }))} placeholder="Source (e.g. Big Bazaar)" className="w-full rounded-lg border border-black/10 px-3 py-2 text-xs focus:outline-none" />
+              <div className="flex gap-2">
+                <input required type="number" min="0" step="0.01" value={logForm.price_per_unit} onChange={(e) => setLogForm(p => ({ ...p, price_per_unit: e.target.value }))} placeholder="Price" className="flex-1 rounded-lg border border-black/10 px-3 py-2 text-xs focus:outline-none" />
+                <select value={logForm.unit} onChange={(e) => setLogForm(p => ({ ...p, unit: e.target.value }))} className="rounded-lg border border-black/10 px-2 py-2 text-xs">
+                  <option value="kg">kg</option><option value="unit">unit</option><option value="L">L</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setShowLogForm(false)} className="flex-1 rounded-lg py-2 text-xs font-bold text-stone-500 hover:bg-stone-50">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 rounded-lg bg-teal-700 py-2 text-xs font-bold text-white hover:bg-teal-600 disabled:opacity-50">{saving ? 'Saving...' : 'Log'}</button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage, onStockChange, onStartEdit, onCancelEdit, onDraftChange, onSaveImage }) {
@@ -194,6 +378,8 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
             {item.days_until_stockout === 'Infinity' ? '∞' : item.days_until_stockout} days
           </span>
         </div>
+
+        <MarketIntelSection sku={item.sku} unitPrice={item.unit_price} />
       </div>
 
       {item.status === 'critical' && (
@@ -591,6 +777,8 @@ export default function InventoryTab() {
 
   return (
     <div className="space-y-6">
+      <ExpiryAlertsBanner />
+
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />

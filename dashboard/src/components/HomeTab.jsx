@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  TrendingUp, 
-  Package, 
-  Megaphone, 
+import {
+  TrendingUp,
+  Package,
+  Megaphone,
   Clock,
   ChevronRight,
   CheckCircle2,
@@ -13,7 +13,10 @@ import {
   ArrowUpRight,
   Briefcase,
   FolderKanban,
-  UserCircle2
+  UserCircle2,
+  BarChart2,
+  Lightbulb,
+  RefreshCw
 } from 'lucide-react';
 
 const PRODUCT_ICONS = {
@@ -23,6 +26,107 @@ const PRODUCT_ICONS = {
   'SKU-004': '🍞', // Bread
   'SKU-005': '🥚', // Eggs
 };
+
+function AnalyticsSummarySection() {
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
+
+  const fetchSummary = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/analytics/summary');
+      const data = await res.json();
+      if (data && !data.message) {
+        setSummary(data);
+      } else {
+        setSummary(null);
+      }
+    } catch { setSummary(null); }
+    finally { setLoading(false); }
+  };
+
+  const runAnalytics = async () => {
+    setRunning(true);
+    try {
+      await fetch('/api/analytics/run', { method: 'POST' });
+      setTimeout(fetchSummary, 3000);
+    } catch { /* ignore */ }
+    finally { setRunning(false); }
+  };
+
+  useEffect(() => { fetchSummary(); }, []);
+
+  if (loading) return null;
+
+  if (!summary) {
+    return (
+      <div className="rounded-[28px] border border-dashed border-black/10 bg-white/60 p-8 text-center">
+        <BarChart2 size={32} className="mx-auto mb-3 text-stone-400" />
+        <h3 className="mb-1 text-sm font-bold text-stone-800">No insights yet</h3>
+        <p className="mb-4 text-xs text-stone-500">Run your first analytics sweep to see daily intelligence.</p>
+        <button onClick={runAnalytics} disabled={running} className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-600 disabled:opacity-50">
+          <RefreshCw size={14} className={running ? 'animate-spin' : ''} />
+          {running ? 'Running...' : 'Run Analytics'}
+        </button>
+      </div>
+    );
+  }
+
+  const insights = summary.insights || summary.key_insights || [];
+  const recommendations = summary.recommendations || summary.system_recommendations || [];
+  const summaryText = summary.summary || summary.executive_summary || summary.text || '';
+
+  return (
+    <div className="rounded-[32px] border border-black/5 bg-stone-900 p-6 text-stone-50 shadow-[0_22px_55px_rgba(0,0,0,0.18)] lg:p-7">
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-400">
+          <BarChart2 size={20} />
+        </div>
+        <div>
+          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">AI Intelligence</div>
+          <h3 className="font-display mt-1 text-2xl font-bold">Daily Summary</h3>
+        </div>
+      </div>
+
+      {summaryText && (
+        <p className="mt-5 text-sm leading-relaxed text-stone-300">{summaryText}</p>
+      )}
+
+      {insights.length > 0 && (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          {insights.slice(0, 4).map((insight, i) => {
+            const severity = insight.severity || 'info';
+            const dotColor = severity === 'critical' ? 'bg-red-500' : severity === 'warning' ? 'bg-amber-500' : 'bg-emerald-500';
+            return (
+              <div key={i} className="rounded-[20px] bg-white/5 p-4">
+                <div className="flex items-center gap-2">
+                  <div className={`h-2 w-2 rounded-full ${dotColor}`} />
+                  <span className="text-xs font-bold text-white">{insight.title || insight.type || 'Insight'}</span>
+                </div>
+                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-stone-400">{insight.detail || insight.description || insight.text || ''}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {recommendations.length > 0 && (
+        <div className="mt-5">
+          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">System Recommendations</div>
+          <ul className="space-y-1.5">
+            {recommendations.slice(0, 5).map((rec, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-stone-300">
+                <Lightbulb size={12} className="mt-0.5 flex-shrink-0 text-amber-400" />
+                {typeof rec === 'string' ? rec : rec.text || rec.recommendation || ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function HomeTab({
   stats,
@@ -243,6 +347,8 @@ export default function HomeTab({
           </div>
         </div>
       </div>
+
+      <AnalyticsSummarySection />
 
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">

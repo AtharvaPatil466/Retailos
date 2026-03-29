@@ -497,4 +497,149 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
             "message": "🎬 Demo started! Watch the Dashboard tab for live events.",
         }
 
+    # ── Expiry Risks (A3) ─────────────────���───────────────
+
+    @app.get("/api/inventory/expiry-risks")
+    async def get_expiry_risks():
+        from pathlib import Path
+        from brain.expiry_alerter import get_expiry_risks
+        base_dir = Path(__file__).resolve().parent.parent
+        try:
+            with open(base_dir / "data" / "mock_inventory.json", "r") as f:
+                items = json.load(f)
+            risks = get_expiry_risks(items)
+            return [r.get("data", r) for r in risks]
+        except Exception:
+            return []
+
+    # ── Suppliers (A2) ─���───────────────────────────────────
+
+    class SupplierRegisterPayload(BaseModel):
+        supplier_id: str
+        supplier_name: str
+        contact_phone: str
+        whatsapp_number: str = ""
+        products: list[str] = []
+        categories: list[str] = []
+        price_per_unit: float = 0
+        min_order_qty: int = 0
+        delivery_days: int = 0
+        payment_terms: str = ""
+        location: str = ""
+        notes: str = ""
+
+    @app.get("/api/suppliers")
+    async def get_suppliers():
+        from pathlib import Path
+        from brain.trust_scorer import get_trust_score
+        base_dir = Path(__file__).resolve().parent.parent
+        try:
+            with open(base_dir / "data" / "mock_suppliers.json", "r") as f:
+                suppliers = json.load(f)
+        except Exception:
+            suppliers = []
+
+        enriched = []
+        for s in suppliers:
+            trust = get_trust_score(s["supplier_id"])
+            enriched.append({**s, "trust_score": trust["score"], "trust_breakdown": trust.get("breakdown", {})})
+        return enriched
+
+    @app.post("/api/suppliers/register")
+    async def register_supplier(payload: SupplierRegisterPayload):
+        from pathlib import Path
+        base_dir = Path(__file__).resolve().parent.parent
+        suppliers_path = base_dir / "data" / "mock_suppliers.json"
+        try:
+            with open(suppliers_path, "r") as f:
+                suppliers = json.load(f)
+        except Exception:
+            suppliers = []
+
+        for s in suppliers:
+            if s["supplier_id"] == payload.supplier_id:
+                raise HTTPException(status_code=409, detail="Supplier ID already exists")
+
+        new_supplier = {
+            "supplier_id": payload.supplier_id,
+            "supplier_name": payload.supplier_name,
+            "contact_phone": payload.contact_phone,
+            "products": payload.products,
+            "categories": payload.categories,
+            "price_per_unit": payload.price_per_unit,
+            "reliability_score": 3.0,
+            "delivery_days": payload.delivery_days,
+            "min_order_qty": payload.min_order_qty,
+            "payment_terms": payload.payment_terms,
+            "location": payload.location,
+        }
+        suppliers.append(new_supplier)
+        with open(suppliers_path, "w") as f:
+            json.dump(suppliers, f, indent=2)
+            f.write("\n")
+        return {"status": "registered", "supplier": new_supplier}
+
+    @app.get("/api/suppliers/{supplier_id}/history")
+    async def get_supplier_history(supplier_id: str):
+        from brain.trust_scorer import get_trust_score
+        from brain.decision_logger import _get_connection
+        trust = get_trust_score(supplier_id)
+        decisions = []
+        try:
+            with _get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT amount, status, timestamp FROM decisions WHERE supplier_id = ? ORDER BY timestamp DESC LIMIT 20",
+                    (supplier_id,),
+                )
+                decisions = [{"amount": r[0], "status": r[1], "timestamp": r[2]} for r in cursor.fetchall()]
+        except Exception:
+            pass
+        return {"trust": trust, "decisions": decisions}
+
+    # ── Market Prices (A4) ───────���─────────────────────────
+
+    class MarketPriceLogPayload(BaseModel):
+        product_id: str
+        source_name: str
+        price_per_unit: float
+        unit: str = "kg"
+
+    @app.get("/api/market-prices")
+    async def get_all_market_prices():
+        from brain.price_monitor import get_market_reference
+        skill = _get_skill("inventory")
+        if not skill:
+            return []
+        results = []
+        for item in skill.inventory_data:
+            ref = get_market_reference(item["sku"])
+            if ref.get("median_price") is not None:
+                results.append({"sku": item["sku"], "product_name": item["product_name"], **ref})
+        return results
+
+    @app.get("/api/market-prices/{sku}")
+    async def get_market_price(sku: str):
+        from brain.price_monitor import get_market_reference
+        return get_market_reference(sku)
+
+    @app.post("/api/market-prices/log")
+    async def log_market_price(payload: MarketPriceLogPayload):
+        from brain.price_monitor import log_manual_price
+        log_manual_price(payload.product_id, payload.source_name, payload.price_per_unit, payload.unit)
+        return {"status": "logged"}
+
+    # ── Alerts (A5) ────────────────────────────────────────
+
+    @app.get("/api/alerts")
+    async def get_alerts(limit: int = 50):
+        cutoff = time.time() - 48 * 3600
+        all_logs = await orchestrator.audit.get_logs(limit=200)
+        alerts = [
+            log for log in all_logs
+            if log.get("status") in ("alert", "critical", "escalated", "pending")
+            and log.get("timestamp", 0) >= cutoff
+        ]
+        return alerts[:limit]
+
     return app
