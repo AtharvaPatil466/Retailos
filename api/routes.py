@@ -13,6 +13,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from runtime.orchestrator import Orchestrator
+from auth.routes import router as auth_router
+from notifications.routes import router as notifications_router
+from reports.routes import router as reports_router
+from api.loyalty_routes import router as loyalty_router
+from api.health_routes import router as health_router
+from api.ml_routes import router as ml_router
+from api.workflow_routes import router as workflow_router
+from api.returns_routes import router as returns_router
+from api.vendor_routes import router as vendor_router
+from api.udhaar_routes import router as udhaar_v2_router
+from api.promotions_routes import router as promotions_router
+from api.staff_routes import router as staff_router
+from api.webhook_routes import router as webhook_router
+from api.store_routes import router as store_router
+from api.i18n_routes import router as i18n_router
+from api.mobile_routes import router as mobile_router
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -987,7 +1003,44 @@ def _latest_business_date(
 
 
 def create_app(orchestrator: Orchestrator) -> FastAPI:
-    app = FastAPI(title="RetailOS", description="Autonomous Agent Runtime for Retail Operations")
+    app = FastAPI(
+        title="RetailOS",
+        description=(
+            "Autonomous Agent Runtime for Indian Kirana & Retail Store Operations.\n\n"
+            "## Modules\n"
+            "- **Auth** — JWT login, role-based access (owner/manager/staff/cashier)\n"
+            "- **Inventory** — Stock tracking, shelf management, expiry alerts\n"
+            "- **Orders** — Customer & vendor order lifecycle\n"
+            "- **Udhaar** — Credit/khata management with limits & reminders\n"
+            "- **Returns** — Return processing, refunds, credit notes\n"
+            "- **Promotions** — Coupons, combos, flash sales\n"
+            "- **Loyalty** — Points program, digital receipts, online catalog\n"
+            "- **Staff** — Attendance, shifts, performance tracking\n"
+            "- **ML/Brain** — Demand forecasting, dynamic pricing, basket analysis\n"
+            "- **Notifications** — Email, SMS, WhatsApp, push, in-app\n"
+            "- **Reports** — PDF/Excel exports (sales, P&L, GST, inventory)\n"
+            "- **Webhooks** — Third-party event subscriptions\n"
+            "- **Workflows** — Approval chains, audit logs, undo/rollback"
+        ),
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_tags=[
+            {"name": "auth", "description": "Authentication & user management"},
+            {"name": "notifications", "description": "Multi-channel notifications"},
+            {"name": "reports", "description": "PDF/Excel report exports"},
+            {"name": "loyalty", "description": "Customer loyalty, receipts, catalog"},
+            {"name": "health", "description": "Health checks & metrics"},
+            {"name": "ml", "description": "Demand forecasting, pricing, basket analysis"},
+            {"name": "workflows", "description": "Approval chains, audit, undo stack"},
+            {"name": "returns", "description": "Return processing & refunds"},
+            {"name": "vendor", "description": "Purchase orders & supplier portal"},
+            {"name": "udhaar", "description": "Credit/khata management"},
+            {"name": "promotions", "description": "Deals, coupons, flash sales"},
+            {"name": "staff", "description": "Attendance, shifts, performance"},
+            {"name": "webhooks", "description": "Webhook registration & events"},
+        ],
+    )
 
     async def _apply_return_effects(return_entry: dict[str, Any]) -> dict[str, Any]:
         skill = _get_skill("inventory")
@@ -1077,6 +1130,9 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event():
+        from db.session import init_db
+        await init_db()
+
         async def broadcast_log(entry):
             await manager.broadcast(json.dumps({
                 "type": "audit_log",
@@ -1091,6 +1147,37 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Security middleware
+    from auth.middleware import RateLimitMiddleware, SecurityHeadersMiddleware
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+
+    # ── Auth routes ──
+    app.include_router(auth_router)
+    app.include_router(notifications_router)
+    app.include_router(reports_router)
+    app.include_router(loyalty_router)
+    app.include_router(health_router)
+    app.include_router(ml_router)
+    app.include_router(workflow_router)
+    app.include_router(returns_router)
+    app.include_router(vendor_router)
+    app.include_router(udhaar_v2_router)
+    app.include_router(promotions_router)
+    app.include_router(staff_router)
+    app.include_router(webhook_router)
+    app.include_router(store_router)
+    app.include_router(i18n_router)
+    app.include_router(mobile_router)
+
+    # ── Load plugins ──
+    from plugins.loader import load_plugins
+    plugin_context = load_plugins(app)
+
+    @app.get("/api/plugins", tags=["plugins"])
+    async def list_plugins():
+        return {"plugins": plugin_context.loaded_plugins}
 
     def _get_skill(name: str):
         return orchestrator.skills.get(name)
