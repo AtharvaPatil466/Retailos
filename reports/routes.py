@@ -1,8 +1,12 @@
+import io
 import json
+import time
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from auth.dependencies import require_role
 from db.models import User
@@ -12,6 +16,7 @@ from reports.generators import (
     generate_pnl_pdf,
     generate_sales_excel,
 )
+from reports.gst_invoice import generate_gst_invoice
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -129,4 +134,64 @@ async def export_inventory_excel(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=inventory_report.xlsx"},
+    )
+
+
+# ── GST Invoice ──────────────────────────────────────────
+
+class InvoiceItem(BaseModel):
+    description: str
+    hsn_code: str = ""
+    qty: int = 1
+    unit: str = "pcs"
+    rate: float = 0.0
+    gst_rate: float = 18.0
+
+
+class InvoiceParty(BaseModel):
+    name: str
+    address: str = ""
+    gstin: str = ""
+    state: str = ""
+    phone: str = ""
+
+
+class GenerateInvoiceRequest(BaseModel):
+    invoice_number: str
+    invoice_date: str = ""
+    seller: InvoiceParty
+    buyer: InvoiceParty
+    items: list[InvoiceItem]
+    place_of_supply: str = ""
+    reverse_charge: bool = False
+    notes: str = ""
+
+
+@router.post("/invoice/gst")
+async def generate_invoice(
+    body: GenerateInvoiceRequest,
+    user: User = Depends(require_role("cashier")),
+):
+    """Generate a GST-compliant tax invoice PDF.
+
+    Includes GSTIN, HSN codes, CGST/SGST/IGST breakdowns,
+    amount in words, and all legally required fields.
+    """
+    invoice_date = body.invoice_date or time.strftime("%Y-%m-%d")
+
+    pdf_bytes = generate_gst_invoice(
+        invoice_number=body.invoice_number,
+        invoice_date=invoice_date,
+        seller=body.seller.model_dump(),
+        buyer=body.buyer.model_dump(),
+        items=[item.model_dump() for item in body.items],
+        place_of_supply=body.place_of_supply,
+        reverse_charge=body.reverse_charge,
+        notes=body.notes,
+    )
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=invoice_{body.invoice_number}.pdf"},
     )
