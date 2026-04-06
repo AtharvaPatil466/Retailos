@@ -1003,7 +1003,24 @@ def _latest_business_date(
     return max(dates) if dates else date.today()
 
 
+def _init_sentry():
+    """Initialize Sentry error tracking if DSN is configured."""
+    import os
+    dsn = os.environ.get("SENTRY_DSN", "")
+    if dsn:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=os.environ.get("SENTRY_ENVIRONMENT", "production"),
+            traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.1")),
+            profiles_sample_rate=float(os.environ.get("SENTRY_PROFILES_SAMPLE_RATE", "0.1")),
+            send_default_pii=False,
+        )
+
+
 def create_app(orchestrator: Orchestrator) -> FastAPI:
+    _init_sentry()
+
     app = FastAPI(
         title="RetailOS",
         description=(
