@@ -36,6 +36,7 @@ from api.push_routes import router as push_router
 from api.sms_routes import router as sms_router
 from api.digest_routes import router as digest_router
 from api.tally_routes import router as tally_router
+from api.shelf_audit_routes import router as shelf_audit_router
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -1205,6 +1206,7 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
     app.include_router(sms_router)
     app.include_router(digest_router)
     app.include_router(tally_router)
+    app.include_router(shelf_audit_router)
 
     # ── Initialize scheduler ──
     from scheduler.engine import Scheduler, register_default_jobs
