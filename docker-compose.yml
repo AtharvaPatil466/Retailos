@@ -1,0 +1,100 @@
+version: "3.9"
+
+services:
+  # ── RetailOS API Server ──
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: retailos-api
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://retailos:retailos@postgres:5432/retailos
+      - REDIS_URL=redis://redis:6379
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-in-production}
+      - JWT_EXPIRE_SECONDS=${JWT_EXPIRE_SECONDS:-86400}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-docker}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET:-}
+      - WHATSAPP_API_KEY=${WHATSAPP_API_KEY:-}
+      - WHATSAPP_PHONE_ID=${WHATSAPP_PHONE_ID:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - TALLY_URL=${TALLY_URL:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - retailos-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── PostgreSQL Database ──
+  postgres:
+    image: postgres:16-alpine
+    container_name: retailos-postgres
+    environment:
+      POSTGRES_DB: retailos
+      POSTGRES_USER: retailos
+      POSTGRES_PASSWORD: retailos
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retailos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis Cache ──
+  redis:
+    image: redis:7-alpine
+    container_name: retailos-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # ── React Dashboard (dev) ──
+  dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    container_name: retailos-dashboard
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://api:8000
+    volumes:
+      - ./dashboard/src:/app/src
+    depends_on:
+      - api
+    profiles:
+      - dev
+
+volumes:
+  retailos-data:
+  postgres-data:
+  redis-data:
