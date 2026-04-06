@@ -4,7 +4,7 @@ import io
 from datetime import date, datetime
 
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -247,3 +247,196 @@ def generate_inventory_excel(products: list[dict]) -> io.BytesIO:
     wb.save(buf)
     buf.seek(0)
     return buf
+
+
+def generate_inventory_pdf(products: list[dict]) -> io.BytesIO:
+    """Generate a PDF inventory report with stock status indicators."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle("Title", parent=styles["Title"], fontSize=18, spaceAfter=12)
+    elements.append(Paragraph(f"Inventory Report — {date.today().isoformat()}", title_style))
+    elements.append(Spacer(1, 12))
+
+    total_items = len(products)
+    critical = sum(1 for p in products if _days_left(p) < 2)
+    warning = sum(1 for p in products if 2 <= _days_left(p) < 5)
+    total_value = sum(p.get("current_stock", 0) * p.get("unit_price", 0) for p in products)
+
+    summary_data = [
+        ["Total SKUs", str(total_items)],
+        ["Critical (< 2 days)", str(critical)],
+        ["Warning (< 5 days)", str(warning)],
+        ["Total Stock Value", f"Rs.{total_value:,.2f}"],
+    ]
+    summary_table = Table(summary_data, colWidths=[200, 200])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#E8F5E9")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 20))
+
+    data = [["SKU", "Product", "Stock", "Threshold", "Days Left", "Status"]]
+    for p in sorted(products, key=lambda x: _days_left(x)):
+        days = _days_left(p)
+        status = "CRITICAL" if days < 2 else "WARNING" if days < 5 else "OK"
+        data.append([
+            p.get("sku", ""),
+            p.get("product_name", "")[:30],
+            str(p.get("current_stock", 0)),
+            str(p.get("reorder_threshold", 0)),
+            f"{days:.0f}" if days < 999 else "-",
+            status,
+        ])
+
+    table = Table(data, colWidths=[70, 150, 50, 60, 55, 60])
+    style_cmds = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2F5233")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F5F0")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]
+    for i, row in enumerate(data[1:], 1):
+        if row[-1] == "CRITICAL":
+            style_cmds.append(("TEXTCOLOR", (-1, i), (-1, i), colors.HexColor("#CC0000")))
+        elif row[-1] == "WARNING":
+            style_cmds.append(("TEXTCOLOR", (-1, i), (-1, i), colors.HexColor("#CC8800")))
+
+    table.setStyle(TableStyle(style_cmds))
+    elements.append(table)
+    doc.build(elements)
+    buf.seek(0)
+    return buf
+
+
+def generate_customer_excel(customers: list[dict], date_from: str = "", date_to: str = "") -> io.BytesIO:
+    """Generate customer analytics Excel report."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Customer Report"
+
+    period = f"{date_from} to {date_to}" if date_from else date.today().isoformat()
+    ws.merge_cells("A1:G1")
+    ws["A1"] = f"Customer Report — {period}"
+    ws["A1"].font = Font(bold=True, size=14)
+
+    header_fill = PatternFill(start_color="2F5233", end_color="2F5233", fill_type="solid")
+    headers = ["Customer ID", "Name", "Phone", "Total Orders", "Total Spent", "Loyalty Tier", "Outstanding Credit"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=3, column=col, value=h)
+        cell.fill = header_fill
+        cell.font = Font(color="FFFFFF", bold=True)
+
+    for row_idx, c in enumerate(customers, 4):
+        ws.cell(row=row_idx, column=1, value=c.get("customer_code", ""))
+        ws.cell(row=row_idx, column=2, value=c.get("name", ""))
+        ws.cell(row=row_idx, column=3, value=c.get("phone", ""))
+        ws.cell(row=row_idx, column=4, value=c.get("total_orders", 0))
+        ws.cell(row=row_idx, column=5, value=round(c.get("total_spent", 0), 2))
+        ws.cell(row=row_idx, column=6, value=c.get("loyalty_tier", "bronze"))
+        ws.cell(row=row_idx, column=7, value=round(c.get("outstanding_credit", 0), 2))
+
+    for col in ws.columns:
+        max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 30)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def generate_daily_summary_pdf(
+    date_str: str,
+    revenue: float,
+    orders_count: int,
+    top_products: list[dict],
+    payment_breakdown: dict[str, float],
+    store_name: str = "RetailOS Supermart",
+) -> io.BytesIO:
+    """Generate a single-day summary PDF."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=20 * mm, bottomMargin=20 * mm)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    title_style = ParagraphStyle("Title", parent=styles["Title"], fontSize=18, spaceAfter=12)
+    elements.append(Paragraph(f"{store_name} — Daily Summary", title_style))
+    elements.append(Paragraph(f"Date: {date_str}", styles["Normal"]))
+    elements.append(Spacer(1, 12))
+
+    avg_order = revenue / orders_count if orders_count else 0
+    kpi_data = [
+        ["Metric", "Value"],
+        ["Total Revenue", f"Rs.{revenue:,.2f}"],
+        ["Total Orders", str(orders_count)],
+        ["Average Order Value", f"Rs.{avg_order:,.2f}"],
+    ]
+    kpi_table = Table(kpi_data, colWidths=[200, 200])
+    kpi_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2F5233")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 11),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+        ("TOPPADDING", (0, 0), (-1, -1), 8),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(kpi_table)
+    elements.append(Spacer(1, 16))
+
+    if payment_breakdown:
+        elements.append(Paragraph("Payment Methods", styles["Heading2"]))
+        pay_data = [["Method", "Amount"]]
+        for method, amount in payment_breakdown.items():
+            pay_data.append([method, f"Rs.{amount:,.2f}"])
+        pay_table = Table(pay_data, colWidths=[200, 200])
+        pay_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a365d")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+            ("ALIGN", (1, 0), (1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(pay_table)
+        elements.append(Spacer(1, 16))
+
+    if top_products:
+        elements.append(Paragraph("Top Products", styles["Heading2"]))
+        prod_data = [["Product", "Qty Sold", "Revenue"]]
+        for p in top_products[:10]:
+            prod_data.append([p.get("name", ""), str(p.get("qty_sold", 0)), f"Rs.{p.get('revenue', 0):,.2f}"])
+        prod_table = Table(prod_data, colWidths=[200, 80, 120])
+        prod_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#92400e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#DDDDDD")),
+            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(prod_table)
+
+    doc.build(elements)
+    buf.seek(0)
+    return buf
+
+
+def _days_left(product: dict) -> float:
+    daily = product.get("daily_sales_rate", 0)
+    stock = product.get("current_stock", 0)
+    return stock / daily if daily > 0 else 999

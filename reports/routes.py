@@ -11,8 +11,11 @@ from pydantic import BaseModel
 from auth.dependencies import require_role
 from db.models import User
 from reports.generators import (
+    generate_customer_excel,
+    generate_daily_summary_pdf,
     generate_gst_excel,
     generate_inventory_excel,
+    generate_inventory_pdf,
     generate_pnl_pdf,
     generate_sales_excel,
 )
@@ -134,6 +137,75 @@ async def export_inventory_excel(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=inventory_report.xlsx"},
+    )
+
+
+@router.get("/inventory/pdf")
+async def export_inventory_pdf(
+    user: User = Depends(require_role("staff")),
+):
+    """Export inventory report as PDF with stock status indicators."""
+    inventory = _read_json("mock_inventory.json", [])
+    buf = generate_inventory_pdf(inventory)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=inventory_report.pdf"},
+    )
+
+
+@router.get("/customers/excel")
+async def export_customer_excel(
+    date_from: str = Query("", description="YYYY-MM-DD"),
+    date_to: str = Query("", description="YYYY-MM-DD"),
+    user: User = Depends(require_role("manager")),
+):
+    """Export customer analytics as Excel."""
+    customers_data = _read_json("mock_customers.json", [])
+    buf = generate_customer_excel(customers_data, date_from, date_to)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=customer_report.xlsx"},
+    )
+
+
+@router.get("/daily-summary/pdf")
+async def export_daily_summary_pdf(
+    date_str: str = Query(..., description="YYYY-MM-DD"),
+    user: User = Depends(require_role("manager")),
+):
+    """Export daily summary report as PDF."""
+    from datetime import datetime
+    orders = _read_json("mock_orders.json", {"customer_orders": []})
+    all_orders = orders.get("customer_orders", [])
+
+    ts_from = datetime.strptime(date_str, "%Y-%m-%d").timestamp()
+    ts_to = ts_from + 86400
+    filtered = [o for o in all_orders if ts_from <= o.get("timestamp", 0) < ts_to]
+
+    revenue = sum(o.get("total_amount", 0) for o in filtered)
+    payment_breakdown: dict[str, float] = {}
+    for o in filtered:
+        method = o.get("payment_method", "Cash")
+        payment_breakdown[method] = payment_breakdown.get(method, 0) + o.get("total_amount", 0)
+
+    # Top products by revenue
+    product_sales: dict[str, dict] = {}
+    for o in filtered:
+        for item in o.get("items", []):
+            name = item.get("product_name", "Unknown")
+            if name not in product_sales:
+                product_sales[name] = {"name": name, "qty_sold": 0, "revenue": 0}
+            product_sales[name]["qty_sold"] += item.get("qty", 1)
+            product_sales[name]["revenue"] += item.get("total", 0)
+    top_products = sorted(product_sales.values(), key=lambda x: x["revenue"], reverse=True)[:10]
+
+    buf = generate_daily_summary_pdf(date_str, revenue, len(filtered), top_products, payment_breakdown)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=daily_summary_{date_str}.pdf"},
     )
 
 
