@@ -26,5 +26,7 @@ httpx==0.28.1
 sentry-sdk[fastapi]==2.19.2
 # Load Testing
 locust==2.32.6
+# E2E Testing
+pytest-playwright==0.5.2
 # Deployment
 gunicorn==23.0.0
