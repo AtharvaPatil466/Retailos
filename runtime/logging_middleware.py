@@ -13,6 +13,7 @@ from runtime.logging_config import (
     user_id_var,
     store_id_var,
 )
+from runtime.metrics import metrics
 
 logger = logging.getLogger("retailos.access")
 
@@ -45,10 +46,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         start = time.time()
         client_ip = request.client.host if request.client else "unknown"
+        metrics.request_started()
 
         try:
             response = await call_next(request)
             duration_ms = round((time.time() - start) * 1000, 1)
+            metrics.request_finished()
+            metrics.record_request(request.method, request.url.path, response.status_code, duration_ms)
 
             # Add correlation headers to response
             response.headers["X-Request-ID"] = req_id
@@ -73,6 +77,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         except Exception as e:
             duration_ms = round((time.time() - start) * 1000, 1)
+            metrics.request_finished()
+            metrics.record_request(request.method, request.url.path, 500, duration_ms)
             logger.error(
                 "%s %s ERROR %.1fms: %s",
                 request.method,
