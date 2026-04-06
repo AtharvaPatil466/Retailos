@@ -31,6 +31,7 @@ from api.mobile_routes import router as mobile_router
 from api.payment_routes import router as payment_router
 from api.whatsapp_routes import router as whatsapp_router
 from api.backup_routes import router as backup_router
+from api.scheduler_routes import router as scheduler_router, set_scheduler
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -1159,6 +1160,9 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
             }, default=str))
         orchestrator.audit.on_log = broadcast_log
 
+        # Start background scheduler
+        scheduler.start()
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -1192,6 +1196,13 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
     app.include_router(payment_router)
     app.include_router(whatsapp_router)
     app.include_router(backup_router)
+    app.include_router(scheduler_router)
+
+    # ── Initialize scheduler ──
+    from scheduler.engine import Scheduler, register_default_jobs
+    scheduler = Scheduler()
+    register_default_jobs(scheduler)
+    set_scheduler(scheduler)
 
     # ── Load plugins ──
     from plugins.loader import load_plugins
