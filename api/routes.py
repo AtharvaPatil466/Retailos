@@ -32,6 +32,7 @@ from api.payment_routes import router as payment_router
 from api.whatsapp_routes import router as whatsapp_router
 from api.backup_routes import router as backup_router
 from api.scheduler_routes import router as scheduler_router, set_scheduler
+from api.push_routes import router as push_router
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -1197,6 +1198,7 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
     app.include_router(whatsapp_router)
     app.include_router(backup_router)
     app.include_router(scheduler_router)
+    app.include_router(push_router)
 
     # ── Initialize scheduler ──
     from scheduler.engine import Scheduler, register_default_jobs
