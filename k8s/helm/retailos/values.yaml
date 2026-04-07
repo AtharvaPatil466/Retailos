@@ -1,0 +1,82 @@
+# Default values for RetailOS Helm chart.
+
+replicaCount: 2
+
+image:
+  repository: retailos/api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: nginx
+  host: api.retailos.example.com
+  tls: true
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilization: 70
+  targetMemoryUtilization: 80
+
+# Application config (non-secret)
+config:
+  LOG_FORMAT: json
+  LOG_LEVEL: INFO
+  WORKERS: "4"
+  WORKER_TIMEOUT: "120"
+
+# Secrets — override via --set or values file
+secrets:
+  JWT_SECRET_KEY: "CHANGE-ME"
+  DATABASE_URL: "postgresql://retailos:retailos@postgres:5432/retailos"
+  REDIS_URL: "redis://redis:6379/0"
+  ENCRYPTION_KEY: "CHANGE-ME"
+  SENTRY_DSN: ""
+
+# PostgreSQL subchart / sidecar
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  storage: 5Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Redis subchart / sidecar
+redis:
+  enabled: true
+  image: redis:7-alpine
+  maxmemory: 128mb
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 192Mi
+
+# Health check paths
+healthCheck:
+  liveness: /health/live
+  readiness: /health/ready
+  startup: /health
