@@ -4,7 +4,7 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from auth.dependencies import require_role
 from db.models import User
@@ -25,6 +25,7 @@ class CreatePaymentOrderRequest(BaseModel):
     customer_id: str = ""
     currency: str = "INR"
     notes: dict[str, str] = {}
+    model_config = ConfigDict(json_schema_extra={"examples": [{"amount": 1250.0, "order_id": "ORD-2024-042", "customer_id": "CUST-001", "currency": "INR", "notes": {"store": "store-001"}}]})
 
 
 class VerifyPaymentRequest(BaseModel):
@@ -33,6 +34,7 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_signature: str
     internal_order_id: str = ""
     customer_id: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"razorpay_order_id": "order_Abc123", "razorpay_payment_id": "pay_Xyz789", "razorpay_signature": "a1b2c3d4e5...", "internal_order_id": "ORD-2024-042"}]})
 
 
 class RecordOfflinePaymentRequest(BaseModel):
@@ -41,12 +43,14 @@ class RecordOfflinePaymentRequest(BaseModel):
     method: str = "cash"  # cash | upi | card | wallet
     customer_id: str = ""
     reference: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"order_id": "ORD-2024-042", "amount": 750.0, "method": "upi", "customer_id": "CUST-001", "reference": "UPI/123456789"}]})
 
 
 class RefundRequest(BaseModel):
     razorpay_payment_id: str
     amount: Optional[float] = None  # None = full refund, else partial (in rupees)
     reason: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"razorpay_payment_id": "pay_Xyz789", "amount": 500.0, "reason": "Partial return — 2 items damaged"}]})
 
 
 # ── Payment Flow ─────────────────────────────────────────

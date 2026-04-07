@@ -3,7 +3,7 @@
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,10 +19,12 @@ class RegisterStaffRequest(BaseModel):
     phone: str | None = None
     role: str = "cashier"
     hourly_rate: float = 0
+    model_config = ConfigDict(json_schema_extra={"examples": [{"name": "Amit Sharma", "phone": "+919876543210", "role": "cashier", "hourly_rate": 125.0}]})
 
 
 class ClockRequest(BaseModel):
     staff_code: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"staff_code": "STAFF-12345"}]})
 
 
 @router.post("/register")

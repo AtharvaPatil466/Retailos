@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from runtime.orchestrator import Orchestrator
 from auth.routes import router as auth_router
@@ -40,7 +40,7 @@ from api.shelf_audit_routes import router as shelf_audit_router
 from api.encryption_routes import router as encryption_router
 from api.compliance_routes import router as compliance_router
 from api.versioning import router as version_router, APIVersionMiddleware
-from api.websocket_manager import channel_manager, emit_inventory_update, emit_sale_event, emit_alert
+from api.websocket_manager import channel_manager
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -90,6 +90,7 @@ manager = ConnectionManager()
 class EventPayload(BaseModel):
     type: str
     data: dict[str, Any] = {}
+    model_config = ConfigDict(json_schema_extra={"examples": [{"type": "inventory.low_stock", "data": {"sku": "RICE-5KG", "current_stock": 3}}]})
 
 class StockUpdatePayload(BaseModel):
     sku: str
@@ -97,6 +98,7 @@ class StockUpdatePayload(BaseModel):
     unit_price: float | None = None
     image_url: str | None = None
     category: str | None = None
+    model_config = ConfigDict(json_schema_extra={"examples": [{"sku": "RICE-5KG", "quantity": 50, "unit_price": 275.0, "category": "Grocery"}]})
 
 class InventoryRegisterPayload(BaseModel):
     sku: str
@@ -108,16 +110,19 @@ class InventoryRegisterPayload(BaseModel):
     threshold: int
     daily_sales_rate: int
     current_stock: int = 0
+    model_config = ConfigDict(json_schema_extra={"examples": [{"sku": "TOOR-DAL-1KG", "product_name": "Toor Dal 1kg", "unit_price": 160.0, "category": "Pulses", "barcode": "8901234567890", "threshold": 10, "daily_sales_rate": 5, "current_stock": 100}]})
 
 class InventoryPatchPayload(BaseModel):
     unit_price: float | None = None
     image_url: str | None = None
     category: str | None = None
     barcode: str | None = None
+    model_config = ConfigDict(json_schema_extra={"examples": [{"unit_price": 170.0, "category": "Pulses & Lentils"}]})
 
 class SaleItemPayload(BaseModel):
     sku: str
     qty: int
+    model_config = ConfigDict(json_schema_extra={"examples": [{"sku": "RICE-5KG", "qty": 2}]})
 
 class InventorySalePayload(BaseModel):
     items: list[SaleItemPayload]
@@ -125,6 +130,7 @@ class InventorySalePayload(BaseModel):
     customer_name: str | None = None
     phone: str | None = None
     payment_method: str = "Cash"
+    model_config = ConfigDict(json_schema_extra={"examples": [{"items": [{"sku": "RICE-5KG", "qty": 2}, {"sku": "TOOR-DAL-1KG", "qty": 1}], "customer_name": "Sunita Devi", "phone": "+919876543210", "payment_method": "UPI"}]})
 
 class SupplierReplyPayload(BaseModel):
     negotiation_id: str
@@ -132,10 +138,12 @@ class SupplierReplyPayload(BaseModel):
     supplier_name: str
     message: str
     product_name: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"negotiation_id": "neg-001", "supplier_id": "SUP-101", "supplier_name": "Sharma Traders", "message": "Best price Rs 240/kg for 100kg order", "product_name": "Basmati Rice"}]})
 
 class ApprovalPayload(BaseModel):
     approval_id: str
     reason: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"approval_id": "apr-001", "reason": "Stock levels critical, approved urgent reorder"}]})
 
 class SupplierRegisterPayload(BaseModel):
     supplier_id: str
@@ -150,15 +158,18 @@ class SupplierRegisterPayload(BaseModel):
     payment_terms: str = ""
     location: str = ""
     notes: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"supplier_id": "SUP-201", "supplier_name": "Gupta Wholesale", "contact_phone": "+919876543210", "whatsapp_number": "+919876543210", "products": ["Rice", "Wheat", "Sugar"], "categories": ["Grocery"], "price_per_unit": 45.0, "min_order_qty": 50, "delivery_days": 2, "payment_terms": "Net 30", "location": "Chandni Chowk, Delhi"}]})
 
 class MarketPriceLogPayload(BaseModel):
     product_id: str
     source_name: str
     price_per_unit: float
     unit: str = "kg"
+    model_config = ConfigDict(json_schema_extra={"examples": [{"product_id": "RICE-5KG", "source_name": "APMC Vashi", "price_per_unit": 52.0, "unit": "kg"}]})
 
 class DeliveryStatusPayload(BaseModel):
     status: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"status": "delivered"}]})
 
 class UdhaarCreditPayload(BaseModel):
     customer_id: str
@@ -166,11 +177,13 @@ class UdhaarCreditPayload(BaseModel):
     phone: str
     items: list[dict]
     amount: float
+    model_config = ConfigDict(json_schema_extra={"examples": [{"customer_id": "CUST-001", "customer_name": "Ramesh Patel", "phone": "+919876543210", "items": [{"sku": "RICE-5KG", "qty": 2, "price": 550}], "amount": 550.0}]})
 
 class UdhaarPaymentPayload(BaseModel):
     udhaar_id: str
     amount: float
     note: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"udhaar_id": "UDH-001", "amount": 200.0, "note": "Partial payment via UPI"}]})
 
 class ReturnPayload(BaseModel):
     order_id: str
@@ -178,15 +191,19 @@ class ReturnPayload(BaseModel):
     customer_name: str
     items: list[dict]
     refund_method: str = "Cash"
+    model_config = ConfigDict(json_schema_extra={"examples": [{"order_id": "ORD-2024-001", "customer_id": "CUST-001", "customer_name": "Sunita Devi", "items": [{"sku": "OIL-1L", "qty": 1, "reason": "damaged", "action": "restock"}], "refund_method": "Credit"}]})
 
 class SupplierPaymentPayload(BaseModel):
     order_id: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"order_id": "PO-2024-005"}]})
 
 class VoiceCommandPayload(BaseModel):
     text: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"text": "check stock of rice"}, {"text": "चावल का स्टॉक बताओ"}]})
 
 class CustomerAssistantPayload(BaseModel):
     text: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"text": "Do you have Amul butter in stock?"}]})
 
 
 # ── GST Rates by category ─────────────────────────────────

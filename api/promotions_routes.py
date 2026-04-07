@@ -4,7 +4,7 @@ import json
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,7 @@ class CreatePromoRequest(BaseModel):
     max_uses: int = 0
     starts_at: float
     ends_at: float
+    model_config = ConfigDict(json_schema_extra={"examples": [{"title": "Diwali Special 20% Off", "description": "Flat 20% off on all grocery items", "promo_type": "percentage", "promo_code": "DIWALI20", "discount_value": 20, "min_order_amount": 500, "applicable_categories": ["Grocery", "Pulses"], "max_uses": 100, "starts_at": 1730400000, "ends_at": 1731009600}]})
 
 
 @router.post("")

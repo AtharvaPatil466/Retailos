@@ -8,7 +8,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from auth.dependencies import require_role
 from db.models import User
@@ -25,6 +25,7 @@ class WebhookRegisterRequest(BaseModel):
     events: list[str]  # e.g. ["order.created", "stock.low", "approval.pending"]
     secret: str = ""  # for HMAC signature verification
     description: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{"url": "https://erp.example.com/webhooks/retailos", "events": ["order.created", "stock.low"], "secret": "whsec_abc123", "description": "ERP sync webhook"}]})
 
 
 SUPPORTED_EVENTS = [

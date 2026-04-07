@@ -9,7 +9,6 @@ Strategy:
 - /api/*    → legacy access, served with deprecation headers
 """
 
-import time
 from typing import Callable
 
 from fastapi import APIRouter, Request, Response

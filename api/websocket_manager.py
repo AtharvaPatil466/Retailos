@@ -8,7 +8,6 @@ Supports real-time dashboard updates across multiple channels:
 - notifications: push/SMS/email delivery status
 """
 
-import asyncio
 import json
 import time
 from typing import Any

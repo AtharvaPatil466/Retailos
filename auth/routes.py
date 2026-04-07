@@ -1,7 +1,7 @@
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,17 +20,20 @@ class RegisterRequest(BaseModel):
     full_name: str
     role: str = "staff"
     phone: str | None = None
+    model_config = ConfigDict(json_schema_extra={"examples": [{"username": "rajesh_owner", "email": "rajesh@store.com", "password": "SecurePass123!", "full_name": "Rajesh Kumar", "role": "owner", "phone": "+919876543210"}]})
 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+    model_config = ConfigDict(json_schema_extra={"examples": [{"username": "rajesh_owner", "password": "SecurePass123!"}]})
 
 
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: dict
+    model_config = ConfigDict(json_schema_extra={"examples": [{"access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...", "token_type": "bearer", "user": {"id": "usr_abc123", "username": "rajesh_owner", "email": "rajesh@store.com", "full_name": "Rajesh Kumar", "role": "owner"}}]})
 
 
 class UserResponse(BaseModel):
@@ -41,9 +44,10 @@ class UserResponse(BaseModel):
     role: str
     phone: str | None
     is_active: bool
+    model_config = ConfigDict(json_schema_extra={"examples": [{"id": "usr_abc123", "username": "rajesh_owner", "email": "rajesh@store.com", "full_name": "Rajesh Kumar", "role": "owner", "phone": "+919876543210", "is_active": True}]})
 
 
-@router.post("/register", response_model=TokenResponse)
+@router.post("/register", response_model=TokenResponse, summary="Register a new user", responses={400: {"description": "Username/email taken or invalid role"}})
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # Check uniqueness
     existing = await db.execute(
@@ -75,7 +79,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse, summary="Login with credentials", responses={401: {"description": "Invalid credentials"}, 403: {"description": "Account deactivated"}})
 async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == body.username))
     user = result.scalar_one_or_none()
@@ -97,7 +101,7 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse, summary="Get current user profile", responses={401: {"description": "Not authenticated"}})
 async def get_me(user: User = Depends(require_role("cashier"))):
     return UserResponse(
         id=user.id,
@@ -110,7 +114,7 @@ async def get_me(user: User = Depends(require_role("cashier"))):
     )
 
 
-@router.get("/users", response_model=list[UserResponse])
+@router.get("/users", response_model=list[UserResponse], summary="List all users (owner only)", responses={403: {"description": "Insufficient role"}})
 async def list_users(
     user: User = Depends(require_role("owner")),
     db: AsyncSession = Depends(get_db),
