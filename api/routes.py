@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -40,6 +40,7 @@ from api.shelf_audit_routes import router as shelf_audit_router
 from api.encryption_routes import router as encryption_router
 from api.compliance_routes import router as compliance_router
 from api.versioning import router as version_router, APIVersionMiddleware
+from api.websocket_manager import channel_manager, emit_inventory_update, emit_sale_event, emit_alert
 
 
 # ── Helpers ────────────────────────────────────────────────
@@ -1177,6 +1178,8 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
                 "type": "audit_log",
                 "data": entry
             }, default=str))
+            # Also broadcast to channel-based WebSocket
+            await channel_manager.broadcast("audit", "audit.entry", entry)
         orchestrator.audit.on_log = broadcast_log
 
         # Start background scheduler
@@ -1254,13 +1257,57 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
 
     # ── WebSocket ──────────────────────────────────────────
     @app.websocket("/ws/events")
-    async def websocket_endpoint(websocket: WebSocket):
+    async def websocket_events_legacy(websocket: WebSocket):
+        """Legacy WebSocket — broadcasts all events."""
         await manager.connect(websocket)
         try:
             while True:
                 await websocket.receive_text()
         except WebSocketDisconnect:
             manager.disconnect(websocket)
+
+    @app.websocket("/ws/dashboard")
+    async def websocket_dashboard(websocket: WebSocket):
+        """Real-time dashboard WebSocket with channel subscriptions.
+
+        Connect with optional ?channels=inventory,orders,sales query param.
+        Send JSON messages to subscribe/unsubscribe dynamically:
+          {"action": "subscribe", "channel": "alerts"}
+          {"action": "unsubscribe", "channel": "audit"}
+        """
+        channels_param = websocket.query_params.get("channels", "")
+        channels = [c.strip() for c in channels_param.split(",") if c.strip()] or None
+
+        await channel_manager.connect(websocket, channels)
+        try:
+            # Send initial connection info
+            await channel_manager.send_to(websocket, {
+                "event": "connected",
+                "channels": sorted(channel_manager._connections.get(websocket, set())),
+                "available_channels": sorted(channel_manager.CHANNELS),
+            })
+
+            while True:
+                raw = await websocket.receive_text()
+                try:
+                    msg = json.loads(raw)
+                    action = msg.get("action")
+                    ch = msg.get("channel", "")
+                    if action == "subscribe" and ch:
+                        channel_manager.subscribe(websocket, ch)
+                        await channel_manager.send_to(websocket, {"event": "subscribed", "channel": ch})
+                    elif action == "unsubscribe" and ch:
+                        channel_manager.unsubscribe(websocket, ch)
+                        await channel_manager.send_to(websocket, {"event": "unsubscribed", "channel": ch})
+                except (json.JSONDecodeError, KeyError):
+                    pass
+        except WebSocketDisconnect:
+            channel_manager.disconnect(websocket)
+
+    @app.get("/api/ws/stats", tags=["websocket"])
+    async def websocket_stats():
+        """Get WebSocket connection and channel statistics."""
+        return channel_manager.get_stats()
 
     # ── Runtime Status ─────────────────────────────────────
     @app.get("/api/status")
