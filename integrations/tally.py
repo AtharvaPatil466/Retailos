@@ -12,7 +12,6 @@ In demo mode (no Tally URL configured), generates XML files locally.
 import logging
 import os
 import time
-from typing import Any
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 logger = logging.getLogger(__name__)

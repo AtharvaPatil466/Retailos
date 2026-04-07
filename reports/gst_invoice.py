@@ -8,8 +8,6 @@ Generates tax invoices per Indian GST law requirements:
 """
 
 import io
-import time
-from typing import Optional
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -163,7 +161,6 @@ def generate_gst_invoice(
     else:
         rows.append(["", "", "", "", "", "Total", f"{total_taxable:.2f}", "", f"{total_cgst:.2f}", "", f"{total_sgst:.2f}", f"{grand_total:.2f}"])
 
-    col_count = len(header)
     items_table = Table(rows, repeatRows=1)
     items_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2c3e50")),

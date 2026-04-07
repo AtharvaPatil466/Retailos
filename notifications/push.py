@@ -74,7 +74,7 @@ class PushNotificationService:
 
         if self.is_configured:
             try:
-                from pywebpush import webpush, WebPushException
+                from pywebpush import webpush
                 webpush(
                     subscription_info=sub["subscription"],
                     data=payload,

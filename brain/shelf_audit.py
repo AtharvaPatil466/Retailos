@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import time
-import base64
 from pathlib import Path
 from typing import Any
 

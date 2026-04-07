@@ -345,11 +345,11 @@ async def udhaar_stats(
     all_ledgers = result.scalars().all()
 
     total = len(all_ledgers)
-    active = [l for l in all_ledgers if l.balance > 0]
-    total_outstanding = sum(l.balance for l in active)
-    total_credit = sum(l.total_credit for l in all_ledgers)
-    total_paid = sum(l.total_paid for l in all_ledgers)
-    over_limit = [l for l in active if l.balance > l.credit_limit]
+    active = [ledger for ledger in all_ledgers if ledger.balance > 0]
+    total_outstanding = sum(ledger.balance for ledger in active)
+    total_credit = sum(ledger.total_credit for ledger in all_ledgers)
+    total_paid = sum(ledger.total_paid for ledger in all_ledgers)
+    over_limit = [ledger for ledger in active if ledger.balance > ledger.credit_limit]
 
     return {
         "total_accounts": total,

@@ -6,11 +6,10 @@ Handles order creation, payment verification, and refunds.
 
 import hashlib
 import hmac
-import json
 import logging
 import os
 import time
-from typing import Any, Optional
+from typing import Any
 
 import httpx
 

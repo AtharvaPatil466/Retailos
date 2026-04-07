@@ -7,7 +7,7 @@ Jobs include: daily P&L email, udhaar reminders, expiry alerts, backup.
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Coroutine
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,6 @@ async def job_expiry_alerts():
     from sqlalchemy import select
     from db.session import async_session_factory
     from db.models import Product
-    import time
 
     async with async_session_factory() as session:
         # Products with shelf_life_days set and last_restock_date
@@ -139,7 +138,7 @@ async def job_expiry_alerts():
             select(Product).where(
                 Product.shelf_life_days.isnot(None),
                 Product.last_restock_date.isnot(None),
-                Product.is_active == True,
+                Product.is_active.is_(True),
                 Product.current_stock > 0,
             )
         )
@@ -176,7 +175,7 @@ async def job_low_stock_check():
     async with async_session_factory() as session:
         result = await session.execute(
             select(Product).where(
-                Product.is_active == True,
+                Product.is_active.is_(True),
                 Product.current_stock <= Product.reorder_threshold,
             )
         )

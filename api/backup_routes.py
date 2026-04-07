@@ -5,12 +5,11 @@ Supports SQLite file backup and JSON data export/import.
 """
 
 import json
-import os
 import shutil
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 
 from auth.dependencies import require_role

@@ -15,7 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 # Per-endpoint rate limit overrides (requests per minute)
 ENDPOINT_LIMITS: dict[str, int] = {
     "/api/auth/login": 20,
-    "/api/auth/register": 10,
+    "/api/auth/register": 30,
     "/api/payments/create-order": 30,
     "/api/payments/webhook": 200,
     "/api/sms/send": 30,

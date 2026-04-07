@@ -11,7 +11,7 @@ Or headless:
 import random
 import time
 
-from locust import HttpUser, task, between, events
+from locust import HttpUser, task, between
 
 
 class RetailOSUser(HttpUser):

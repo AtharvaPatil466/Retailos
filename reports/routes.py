@@ -2,7 +2,6 @@ import io
 import json
 import time
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse

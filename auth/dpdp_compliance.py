@@ -13,7 +13,6 @@ India's DPDP Act 2023 requirements:
 Also covers GDPR-equivalent requirements for international compliance.
 """
 
-import json
 import logging
 import time
 from typing import Any

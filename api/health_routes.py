@@ -1,6 +1,5 @@
 """Health checks, structured logging config, and metrics endpoint."""
 
-import logging
 import os
 import time
 from pathlib import Path

@@ -1,7 +1,6 @@
 """Business logic tests — dynamic pricer, webhook dispatch, plugin system."""
 
 import pytest
-import time
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from brain.dynamic_pricer import get_price_suggestion

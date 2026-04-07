@@ -1,7 +1,6 @@
 """API integration tests — auth flow, CRUD endpoints, error handling."""
 
 import pytest
-import pytest_asyncio
 
 from tests.conftest import register_user, auth_header
 

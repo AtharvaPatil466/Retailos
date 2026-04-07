@@ -1,7 +1,6 @@
 """Database model tests — CRUD operations, constraints, relationships."""
 
 import pytest
-import pytest_asyncio
 from sqlalchemy import select
 
 from db.models import (
