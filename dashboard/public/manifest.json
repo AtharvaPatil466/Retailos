@@ -1,12 +1,36 @@
 {
-  "name": "RetailOS",
+  "name": "RetailOS — Smart Store Manager",
   "short_name": "RetailOS",
-  "description": "Autonomous Agent Runtime for Retail Operations",
+  "description": "Autonomous retail store operations — inventory, billing, analytics. Works offline.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0a0a0a",
   "theme_color": "#3b82f6",
   "orientation": "any",
+  "lang": "en-IN",
+  "categories": ["business", "productivity", "shopping"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "New Sale",
+      "short_name": "Sale",
+      "url": "/?action=new-sale",
+      "description": "Quick sale entry"
+    },
+    {
+      "name": "Stock Check",
+      "short_name": "Stock",
+      "url": "/?action=stock-check",
+      "description": "Check inventory levels"
+    },
+    {
+      "name": "Daily Summary",
+      "short_name": "Summary",
+      "url": "/?action=daily-summary",
+      "description": "Today's sales summary"
+    }
+  ],
   "icons": [
     {
       "src": "/icon-192.svg",
@@ -20,5 +44,7 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

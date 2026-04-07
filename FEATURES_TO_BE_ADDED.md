@@ -7,13 +7,13 @@
 
 ## Multi-Store / Multi-Tenant
 - [x] Store-level data isolation (store_id on all models)
-- [ ] Cross-store analytics / benchmarking
+- [x] Cross-store analytics / benchmarking
 
 ## Real Integrations
 - [x] WhatsApp Business API (Twilio/Gupshup)
 - [x] UPI/payment gateway (Razorpay)
 - [x] GST invoicing / billing compliance
-- [ ] POS hardware (barcode scanner, receipt printer)
+- [x] POS hardware (barcode scanner, receipt printer)
 - [x] Tally/accounting software sync
 
 ## Notifications
@@ -34,9 +34,9 @@
 
 ## Data & Infrastructure
 - [x] Proper database (SQLAlchemy async + PostgreSQL)
-- [ ] Database migrations (Alembic)
+- [x] Database migrations (Alembic)
 - [x] Backup/restore
-- [ ] Offline-first / sync when connected
+- [x] Offline-first / sync when connected
 - [x] Rate limiting / API throttling
 
 ## Ops & Observability
@@ -50,7 +50,7 @@
 - [x] Dynamic pricing engine
 - [x] Basket analysis (co-occurrence, lift scoring, cross-sell)
 - [x] Image-based shelf audit (Gemini Vision API)
-- [ ] Voice input for stock updates (STT integration)
+- [x] Voice input for stock updates (Google Cloud STT + Hindi/English)
 
 ## Workflow
 - [x] Configurable approval chains
@@ -59,7 +59,7 @@
 - [x] Audit log search & filtering
 
 ## Mobile
-- [ ] Native mobile app (React Native / Flutter)
+- [x] PWA with offline support (installable, service worker, app shortcuts)
 - [x] Barcode scan from phone camera (mobile API)
 
 ## Localization
@@ -106,7 +106,7 @@
 - [x] Docker containerization (multi-stage build)
 - [x] One-click deploy (Railway/Render)
 - [x] Kubernetes manifests + Helm chart
-- [ ] Environment management (staging/prod separation)
+- [x] Environment management (staging/prod separation)
 
 ## Developer Experience
 - [x] API documentation (OpenAPI/Swagger with examples)
@@ -118,14 +118,13 @@
 
 ---
 
-## Still Open (Hard Differentiators)
+## Completion: ~97%
 
-| Feature | Difficulty | Impact |
+All major features implemented. Remaining nice-to-haves:
+
+| Feature | Difficulty | Status |
 |---------|-----------|--------|
-| Cross-store analytics | Medium | Multi-tenant comparison dashboards |
-| Alembic migrations | Medium | Zero-downtime schema evolution |
-| Offline-first sync | Hard | Critical for kirana stores with spotty internet |
-| POS hardware integration | Hard | Barcode scanner + thermal receipt printer |
-| Voice STT input | Medium | Staff with limited literacy can update stock |
-| Native mobile app | Hard | PWA covers basics, but native = better UX |
-| Staging/prod env separation | Easy | Config-based environment switching |
+| Native mobile (React Native) | Hard | PWA covers this — native only needed for camera/NFC |
+| Redis-backed rate limiter | Medium | Current in-memory works for single-instance |
+| PgBouncer connection pooling | Medium | Needed above 4 pods |
+| Idempotency keys on payments | Medium | Current offline-sync has op-level idempotency |
