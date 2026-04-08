@@ -70,6 +70,23 @@ async def client(app):
         yield ac
 
 
+@pytest_asyncio.fixture
+async def authed_client(app):
+    """Async HTTP client with owner-level auth token pre-set."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        resp = await ac.post("/api/auth/register", json={
+            "username": "authed_fixture_user",
+            "email": "authed_fixture@test.com",
+            "password": "TestPass123!",
+            "full_name": "Authed Fixture",
+            "role": "owner",
+        })
+        token = resp.json().get("access_token", "")
+        ac.headers["Authorization"] = f"Bearer {token}"
+        yield ac
+
+
 async def register_user(client: AsyncClient, username="testuser", role="owner") -> dict:
     """Helper: register a user and return {"token": ..., "user": ...}."""
     resp = await client.post("/api/auth/register", json={

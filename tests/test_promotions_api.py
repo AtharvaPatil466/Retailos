@@ -79,7 +79,8 @@ async def test_payment_history(client):
 
 @pytest.mark.asyncio
 async def test_push_status(client):
-    resp = await client.get("/api/push/status")
+    reg = await register_user(client, "push_user", "cashier")
+    resp = await client.get("/api/push/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     data = resp.json()
     assert "configured" in data
@@ -87,19 +88,22 @@ async def test_push_status(client):
 
 @pytest.mark.asyncio
 async def test_sms_status(client):
-    resp = await client.get("/api/sms/status")
+    reg = await register_user(client, "sms_user", "cashier")
+    resp = await client.get("/api/sms/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_digest_status(client):
-    resp = await client.get("/api/digests/status")
+    reg = await register_user(client, "digest_user", "cashier")
+    resp = await client.get("/api/digests/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_tally_status(client):
-    resp = await client.get("/api/tally/status")
+    reg = await register_user(client, "tally_user", "cashier")
+    resp = await client.get("/api/tally/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     data = resp.json()
     assert data["mode"] == "demo"
@@ -107,13 +111,15 @@ async def test_tally_status(client):
 
 @pytest.mark.asyncio
 async def test_shelf_audit_status(client):
-    resp = await client.get("/api/shelf-audit/status")
+    reg = await register_user(client, "shelf_user", "cashier")
+    resp = await client.get("/api/shelf-audit/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_encryption_status(client):
-    resp = await client.get("/api/encryption/status")
+    reg = await register_user(client, "enc_user", "owner")
+    resp = await client.get("/api/encryption/status", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     data = resp.json()
     assert data["algorithm"] == "Fernet (AES-128-CBC)"
@@ -121,7 +127,8 @@ async def test_encryption_status(client):
 
 @pytest.mark.asyncio
 async def test_compliance_purposes(client):
-    resp = await client.get("/api/compliance/purposes")
+    reg = await register_user(client, "comp_user", "owner")
+    resp = await client.get("/api/compliance/purposes", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     purposes = resp.json()
     assert isinstance(purposes, list)
@@ -130,13 +137,15 @@ async def test_compliance_purposes(client):
 
 @pytest.mark.asyncio
 async def test_compliance_retention(client):
-    resp = await client.get("/api/compliance/retention")
+    reg = await register_user(client, "comp_ret_user", "owner")
+    resp = await client.get("/api/compliance/retention", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_api_version_endpoint(client):
-    resp = await client.get("/api/version")
+    reg = await register_user(client, "ver_user", "cashier")
+    resp = await client.get("/api/version", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     data = resp.json()
     assert data["current_version"] == "v1"
@@ -154,14 +163,16 @@ async def test_versioned_endpoint_works(client):
 @pytest.mark.asyncio
 async def test_legacy_endpoint_deprecation_header(client):
     """Test that legacy /api/ routes include deprecation headers."""
-    resp = await client.get("/api/webhooks/events")
+    reg = await register_user(client, "legacy_user", "cashier")
+    resp = await client.get("/api/webhooks/events", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     assert resp.headers.get("Deprecation") == "true"
 
 
 @pytest.mark.asyncio
 async def test_websocket_stats(client):
-    resp = await client.get("/api/ws/stats")
+    reg = await register_user(client, "ws_user", "cashier")
+    resp = await client.get("/api/ws/stats", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     data = resp.json()
     assert "active_connections" in data

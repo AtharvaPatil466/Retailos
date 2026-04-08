@@ -130,7 +130,8 @@ async def test_health_live(client):
 
 @pytest.mark.asyncio
 async def test_webhook_events_list(client):
-    resp = await client.get("/api/webhooks/events")
+    reg = await register_user(client, "webhook_user", "cashier")
+    resp = await client.get("/api/webhooks/events", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     events = resp.json()["events"]
     assert "order.created" in events
@@ -139,7 +140,8 @@ async def test_webhook_events_list(client):
 
 @pytest.mark.asyncio
 async def test_i18n_languages(client):
-    resp = await client.get("/api/i18n/languages")
+    reg = await register_user(client, "i18n_user", "cashier")
+    resp = await client.get("/api/i18n/languages", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     codes = [lang["code"] for lang in resp.json()["languages"]]
     assert "en" in codes
@@ -148,7 +150,8 @@ async def test_i18n_languages(client):
 
 @pytest.mark.asyncio
 async def test_i18n_translations(client):
-    resp = await client.get("/api/i18n/translations/hi")
+    reg = await register_user(client, "i18n_trans_user", "cashier")
+    resp = await client.get("/api/i18n/translations/hi", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     translations = resp.json()["translations"]
     assert translations["inventory.title"] == "इन्वेंटरी"
@@ -156,7 +159,8 @@ async def test_i18n_translations(client):
 
 @pytest.mark.asyncio
 async def test_i18n_translate_key(client):
-    resp = await client.get("/api/i18n/translate", params={"key": "common.yes", "lang": "hi"})
+    reg = await register_user(client, "i18n_key_user", "cashier")
+    resp = await client.get("/api/i18n/translate", params={"key": "common.yes", "lang": "hi"}, headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     assert resp.json()["text"] == "हाँ"
 

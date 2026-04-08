@@ -1,8 +1,9 @@
-"""Security middleware: rate limiting, input sanitization, CORS hardening."""
+"""Security middleware: rate limiting, input sanitization, CORS hardening, RBAC."""
 
 import hashlib
 import html
 import json
+import os
 import re
 import time
 from collections import defaultdict
@@ -175,3 +176,151 @@ def mask_email(email: str) -> str:
         return "***"
     local, domain = email.split("@", 1)
     return local[0] + "***@" + domain
+
+
+# ── Role-Based Access Control Middleware ──
+
+ROLE_HIERARCHY: dict[str, int] = {
+    "owner": 4,
+    "manager": 3,
+    "staff": 2,
+    "cashier": 1,
+}
+
+# Route patterns → minimum role required.
+# Matched top-to-bottom; first match wins.
+# Public routes (no auth needed) are listed under PUBLIC_PATTERNS.
+PUBLIC_PATTERNS: list[re.Pattern] = [
+    re.compile(r"^/api/auth/(login|register)$"),
+    re.compile(r"^/api/v\d+/auth/(login|register)$"),
+    re.compile(r"^/health"),
+    re.compile(r"^/api/v\d+/health"),
+    re.compile(r"^/docs"),
+    re.compile(r"^/openapi\.json$"),
+    re.compile(r"^/redoc"),
+    re.compile(r"^/ws/"),          # WebSocket endpoints handle auth separately
+    re.compile(r"^/$"),
+]
+
+# Routes that handle their own RBAC via Depends(require_role(...)).
+# The middleware lets these through — double-checking would break
+# their fine-grained role logic.
+SELF_ENFORCED_PATTERNS: list[re.Pattern] = [
+    re.compile(r"^/api/auth/"),       # auth routes use require_role() internally
+    re.compile(r"^/api/v\d+/auth/"),
+    re.compile(r"^/api/webhooks"),    # webhook routes enforce owner internally
+    re.compile(r"^/api/v\d+/webhooks"),
+]
+
+# (HTTP method regex, path regex, minimum_role)
+RBAC_RULES: list[tuple[re.Pattern, re.Pattern, str]] = [
+    # Owner-only: backup, compliance, encryption, store settings
+    (re.compile(r"^(POST|DELETE)$"), re.compile(r"^/api/backup/"), "owner"),
+    (re.compile(r"^(POST|PUT|DELETE)$"), re.compile(r"^/api/store/"), "owner"),
+    (re.compile(r".*"), re.compile(r"^/api/compliance/"), "owner"),
+    (re.compile(r".*"), re.compile(r"^/api/encryption/"), "owner"),
+
+    # Manager+: staff management, vendor management, promotions CRUD, reports
+    (re.compile(r"^(POST|PUT|PATCH|DELETE)$"), re.compile(r"^/api/staff/"), "manager"),
+    (re.compile(r"^(POST|PUT|PATCH|DELETE)$"), re.compile(r"^/api/vendors?/"), "manager"),
+    (re.compile(r"^(POST|PUT|PATCH|DELETE)$"), re.compile(r"^/api/promotions/"), "manager"),
+    (re.compile(r".*"), re.compile(r"^/api/reports/"), "manager"),
+    (re.compile(r"^(POST|PUT|PATCH|DELETE)$"), re.compile(r"^/api/scheduler/"), "manager"),
+    (re.compile(r"^(POST)$"), re.compile(r"^/api/push/broadcast$"), "manager"),
+    (re.compile(r"^(POST|PUT|PATCH|DELETE)$"), re.compile(r"^/api/inventory/register$"), "manager"),
+
+    # Staff+: inventory updates, approvals, shelf audit, delivery management
+    (re.compile(r"^(POST|PUT|PATCH)$"), re.compile(r"^/api/inventory/"), "staff"),
+    (re.compile(r"^(POST)$"), re.compile(r"^/api/approvals/"), "staff"),
+    (re.compile(r"^(POST|PUT|PATCH)$"), re.compile(r"^/api/shelf/"), "staff"),
+    (re.compile(r"^(POST|PUT|PATCH)$"), re.compile(r"^/api/delivery/"), "staff"),
+    (re.compile(r"^(POST|PUT|PATCH)$"), re.compile(r"^/api/returns/"), "staff"),
+
+    # Cashier (lowest authenticated role): sales, orders, cart, sync, reads
+    (re.compile(r"^(POST)$"), re.compile(r"^/api/inventory/sale$"), "cashier"),
+    (re.compile(r"^(POST)$"), re.compile(r"^/api/sync/"), "cashier"),
+    (re.compile(r"^(GET)$"), re.compile(r"^/api/"), "cashier"),
+]
+
+
+class RBACMiddleware(BaseHTTPMiddleware):
+    """Enforce role-based access control on API routes via JWT inspection.
+
+    Routes are matched against RBAC_RULES by HTTP method and path.
+    Public routes (health, auth, docs, websocket) bypass checks entirely.
+    Any authenticated request whose role is below the required minimum gets 403.
+    Unauthenticated requests to protected routes get 401.
+    """
+
+    # Strip /api/v1/ or /api/v2/ to canonical /api/ for matching
+    _VERSION_PREFIX = re.compile(r"^/api/v\d+/")
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        path = request.url.path
+        method = request.method
+
+        # Normalize versioned paths: /api/v1/foo → /api/foo for rule matching
+        canonical_path = self._VERSION_PREFIX.sub("/api/", path)
+
+        # Skip public routes (check both original and canonical)
+        for pattern in PUBLIC_PATTERNS:
+            if pattern.match(path) or pattern.match(canonical_path):
+                return await call_next(request)
+
+        # Routes that enforce their own RBAC — let them through
+        for pattern in SELF_ENFORCED_PATTERNS:
+            if pattern.match(path) or pattern.match(canonical_path):
+                return await call_next(request)
+
+        # Find the minimum role for this method+path
+        required_role = None
+        for method_re, path_re, role in RBAC_RULES:
+            if method_re.match(method) and (path_re.match(path) or path_re.match(canonical_path)):
+                required_role = role
+                break
+
+        # If no rule matched, default to requiring at least cashier for any /api/ route
+        if required_role is None:
+            if path.startswith("/api/"):
+                required_role = "cashier"
+            else:
+                return await call_next(request)
+
+        min_level = ROLE_HIERARCHY.get(required_role, 0)
+
+        # Extract role from JWT
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return Response(
+                content=json.dumps({"detail": "Authentication required"}),
+                status_code=401,
+                media_type="application/json",
+            )
+
+        try:
+            from jose import jwt as jose_jwt
+            token = auth_header[7:]
+            payload = jose_jwt.decode(
+                token,
+                os.environ.get("JWT_SECRET_KEY", ""),
+                algorithms=["HS256"],
+            )
+            user_role = payload.get("role", "")
+            user_level = ROLE_HIERARCHY.get(user_role, 0)
+
+            if user_level < min_level:
+                return Response(
+                    content=json.dumps({
+                        "detail": f"Forbidden: requires '{required_role}' role or higher, you have '{user_role}'",
+                    }),
+                    status_code=403,
+                    media_type="application/json",
+                )
+        except Exception:
+            return Response(
+                content=json.dumps({"detail": "Invalid or expired token"}),
+                status_code=401,
+                media_type="application/json",
+            )
+
+        return await call_next(request)
