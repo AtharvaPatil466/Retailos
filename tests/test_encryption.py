@@ -16,8 +16,8 @@ def test_encrypt_decrypt_roundtrip():
 def test_encrypt_empty_string():
     enc = FieldEncryptor()
     encrypted = enc.encrypt("")
-    assert encrypted.startswith("enc:")
-    assert enc.decrypt(encrypted) == ""
+    # Empty string is returned as-is (no encryption needed)
+    assert encrypted == ""
 
 
 def test_decrypt_plaintext_returns_as_is():

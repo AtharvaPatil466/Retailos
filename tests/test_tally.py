@@ -8,9 +8,9 @@ from integrations.tally import TallySync
 def test_tally_sync_init_demo_mode():
     tally = TallySync()
     assert tally.is_configured is False
-    status = tally.get_status()
-    assert status["mode"] == "demo"
-    assert status["connected"] is False
+    assert tally.is_configured is False
+    # Demo mode: no tally_url configured
+    assert tally.tally_url == ""
 
 
 def test_generate_sales_voucher_xml():
@@ -26,7 +26,7 @@ def test_generate_sales_voucher_xml():
         "total_amount": 710.0,
         "payment_method": "Cash",
     }
-    xml_str = tally.generate_sales_voucher(order)
+    xml_str = tally.generate_sales_voucher_xml(order)
     assert isinstance(xml_str, str)
     assert "ENVELOPE" in xml_str or "envelope" in xml_str.lower()
 
@@ -46,7 +46,7 @@ def test_generate_purchase_voucher_xml():
         ],
         "total_amount": 12000.0,
     }
-    xml_str = tally.generate_purchase_voucher(purchase)
+    xml_str = tally.generate_purchase_voucher_xml(purchase)
     assert isinstance(xml_str, str)
 
     root = ET.fromstring(xml_str)

@@ -11,6 +11,7 @@ from httpx import ASGITransport, AsyncClient
 # Force test database before any app imports
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///data/test_retailos.db"
 os.environ["JWT_SECRET_KEY"] = "test-secret-key"
+os.environ["TESTING"] = "1"
 
 from db.session import Base, async_session_factory, engine
 from api.routes import create_app
@@ -88,13 +89,24 @@ async def authed_client(app):
 
 
 async def register_user(client: AsyncClient, username="testuser", role="owner") -> dict:
-    """Helper: register a user and return {"token": ..., "user": ...}."""
+    """Helper: register a user and return {"token": ..., "user": ...}.
+
+    If the username is already taken, falls back to login.
+    """
     resp = await client.post("/api/auth/register", json={
         "username": username,
         "email": f"{username}@test.com",
         "password": "TestPass123!",
         "full_name": f"Test {username.title()}",
         "role": role,
+    })
+    data = resp.json()
+    if resp.status_code == 200:
+        return {"token": data.get("access_token", ""), "user": data.get("user", {}), "status": resp.status_code}
+    # Username already exists — try login
+    resp = await client.post("/api/auth/login", json={
+        "username": username,
+        "password": "TestPass123!",
     })
     data = resp.json()
     return {"token": data.get("access_token", ""), "user": data.get("user", {}), "status": resp.status_code}

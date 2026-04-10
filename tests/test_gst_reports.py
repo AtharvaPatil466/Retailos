@@ -10,35 +10,38 @@ from reports.gst_returns import (
 )
 
 
-def _make_orders():
+def _make_invoices():
     return [
         {
-            "order_id": "ORD-001",
-            "date": "2024-10-15",
-            "customer_name": "Ramesh Patel",
-            "customer_gstin": "27AABCU9603R1ZM",
-            "items": [
-                {"sku": "RICE-5KG", "product_name": "Basmati Rice 5kg", "qty": 10, "unit_price": 275.0, "hsn": "1006", "gst_rate": 5},
-                {"sku": "OIL-1L", "product_name": "Sunflower Oil 1L", "qty": 5, "unit_price": 180.0, "hsn": "1512", "gst_rate": 5},
-            ],
+            "invoice_number": "INV-001",
+            "invoice_date": "2024-10-15",
+            "buyer_gstin": "27AABCU9603R1ZM",
             "total_amount": 3650.0,
+            "gst_rate": 5,
+            "taxable_value": 3476.19,
+            "place_of_supply": "27-Maharashtra",
+            "items": [
+                {"hsn_code": "1006", "description": "Basmati Rice 5kg", "qty": 10, "total": 2750.0},
+                {"hsn_code": "1512", "description": "Sunflower Oil 1L", "qty": 5, "total": 900.0},
+            ],
         },
         {
-            "order_id": "ORD-002",
-            "date": "2024-10-18",
-            "customer_name": "Sunita Devi",
-            "customer_gstin": "",
-            "items": [
-                {"sku": "SOAP-100G", "product_name": "Soap Bar 100g", "qty": 3, "unit_price": 45.0, "hsn": "3401", "gst_rate": 18},
-            ],
+            "invoice_number": "INV-002",
+            "invoice_date": "2024-10-18",
+            "buyer_gstin": "",
             "total_amount": 135.0,
+            "gst_rate": 18,
+            "taxable_value": 114.41,
+            "items": [
+                {"hsn_code": "3401", "description": "Soap Bar 100g", "qty": 3, "total": 135.0},
+            ],
         },
     ]
 
 
 def test_gstr1_excel_generates():
-    orders = _make_orders()
-    buf = generate_gstr1_excel(orders, "2024-10", "27AABCU9603R1ZM")
+    invoices = _make_invoices()
+    buf = generate_gstr1_excel(invoices, "2024-10-01", "2024-10-31", gstin="27AABCU9603R1ZM")
     assert isinstance(buf, io.BytesIO)
     wb = load_workbook(buf)
     assert "B2B" in wb.sheetnames
@@ -47,59 +50,47 @@ def test_gstr1_excel_generates():
 
 
 def test_gstr1_b2b_has_gstin_entries():
-    orders = _make_orders()
-    buf = generate_gstr1_excel(orders, "2024-10", "27AABCU9603R1ZM")
+    invoices = _make_invoices()
+    buf = generate_gstr1_excel(invoices, "2024-10-01", "2024-10-31", gstin="27AABCU9603R1ZM")
     wb = load_workbook(buf)
     b2b = wb["B2B"]
-    # Header + at least 1 data row (order with GSTIN)
-    assert b2b.max_row >= 2
+    # Header rows + at least 1 data row (invoice with GSTIN)
+    assert b2b.max_row >= 5
 
 
 def test_gstr1_b2c_has_non_gstin_entries():
-    orders = _make_orders()
-    buf = generate_gstr1_excel(orders, "2024-10", "27AABCU9603R1ZM")
+    invoices = _make_invoices()
+    buf = generate_gstr1_excel(invoices, "2024-10-01", "2024-10-31", gstin="27AABCU9603R1ZM")
     wb = load_workbook(buf)
     b2c = wb["B2C"]
-    assert b2c.max_row >= 2
+    assert b2c.max_row >= 4
 
 
 def test_gstr3b_excel_generates():
-    orders = _make_orders()
-    purchases = [
-        {
-            "order_id": "PO-001",
-            "date": "2024-10-10",
-            "items": [
-                {"sku": "RICE-5KG", "qty": 100, "unit_price": 250.0, "gst_rate": 5},
-            ],
-        }
-    ]
-    buf = generate_gstr3b_excel(orders, purchases, "2024-10")
+    sales_data = {"taxable_value": 3590.60, "gst_collected": 200.0}
+    purchase_data = {"gst_paid": 125.0}
+    buf = generate_gstr3b_excel(sales_data, purchase_data, "2024-10-01", "2024-10-31")
     assert isinstance(buf, io.BytesIO)
     wb = load_workbook(buf)
     assert "GSTR-3B" in wb.sheetnames
 
 
 def test_pnl_excel_generates():
-    revenue_data = {
-        "total_sales": 150000.0,
-        "total_returns": 5000.0,
-        "cost_of_goods": 90000.0,
-        "expenses": {
-            "rent": 15000.0,
-            "salaries": 25000.0,
-            "utilities": 3000.0,
-            "marketing": 2000.0,
-        },
-    }
-    buf = generate_pnl_excel(revenue_data, "2024-10")
+    buf = generate_pnl_excel(
+        revenue=150000.0,
+        cost_of_goods=90000.0,
+        gst_collected=12000.0,
+        returns_amount=5000.0,
+        expenses={"Rent": 15000.0, "Salaries": 25000.0, "Utilities": 3000.0, "Marketing": 2000.0},
+        period="October 2024",
+    )
     assert isinstance(buf, io.BytesIO)
     wb = load_workbook(buf)
-    assert "P&L Statement" in wb.sheetnames
+    assert "Profit & Loss" in wb.sheetnames
 
 
 def test_gstr1_empty_orders():
-    buf = generate_gstr1_excel([], "2024-10", "27AABCU9603R1ZM")
+    buf = generate_gstr1_excel([], "2024-10-01", "2024-10-31", gstin="27AABCU9603R1ZM")
     assert isinstance(buf, io.BytesIO)
     wb = load_workbook(buf)
     assert "B2B" in wb.sheetnames
