@@ -1,13 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Search, Package, X, QrCode } from 'lucide-react';
 
-const API = window.location.origin;
+const getApiBase = () => (typeof window !== 'undefined' ? window.location.origin : '');
+const getToken = () => {
+  try {
+    return localStorage.getItem('retailos_token') || localStorage.getItem('token') || '';
+  } catch {
+    return '';
+  }
+};
 const headers = () => ({
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+  Authorization: `Bearer ${getToken()}`,
   'Content-Type': 'application/json',
 });
 
 export default function BarcodeScannerTab() {
+  const api = getApiBase();
   const [scanning, setScanning] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [result, setResult] = useState(null);
@@ -51,7 +59,7 @@ export default function BarcodeScannerTab() {
     setResult(null);
 
     try {
-      const resp = await fetch(`${API}/api/mobile/barcode/${encodeURIComponent(code)}`, {
+      const resp = await fetch(`${api}/api/mobile/barcode/${encodeURIComponent(code)}`, {
         headers: headers(),
       });
       const data = await resp.json();
@@ -72,7 +80,7 @@ export default function BarcodeScannerTab() {
     }
     try {
       const resp = await fetch(
-        `${API}/api/mobile/barcode/search?q=${encodeURIComponent(query)}`,
+        `${api}/api/mobile/barcode/search?q=${encodeURIComponent(query)}`,
         { headers: headers() }
       );
       const data = await resp.json();

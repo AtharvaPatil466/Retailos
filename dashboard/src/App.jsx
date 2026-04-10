@@ -46,6 +46,27 @@ import BarcodeScannerTab from './components/BarcodeScannerTab';
 import VoiceAssistantTab from './components/VoiceAssistantTab';
 import useOfflineSync from './useOfflineSync';
 
+const getStoredToken = () => {
+  try {
+    return localStorage.getItem('retailos_token') || localStorage.getItem('token') || '';
+  } catch {
+    return '';
+  }
+};
+
+const authHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const toArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.logs)) return value.logs;
+  if (Array.isArray(value?.items)) return value.items;
+  if (Array.isArray(value?.results)) return value.results;
+  return [];
+};
+
 export default function App() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [isKioskMode] = useState(() => new URLSearchParams(window.location.search).get('mode') === 'kiosk');
@@ -122,7 +143,9 @@ export default function App() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [alertCount, setAlertCount] = useState(0);
   const [isConnected, setIsConnected] = useState(false);
+  const [authRequired, setAuthRequired] = useState(false);
   const ws = useRef(null);
+  const token = getStoredToken();
 
   // Offline-first sync engine
   const {
@@ -132,6 +155,7 @@ export default function App() {
     queueOperation,
     forceSync,
   } = useOfflineSync({
+    authToken: token,
     onPulledChanges: () => {
       setRefreshTick((prev) => prev + 1);
     },
@@ -160,6 +184,16 @@ export default function App() {
   ];
 
   useEffect(() => {
+    try {
+      const retailToken = localStorage.getItem('retailos_token');
+      const legacyToken = localStorage.getItem('token');
+      if (retailToken && !legacyToken) {
+        localStorage.setItem('token', retailToken);
+      }
+    } catch {
+      // ignore storage failures
+    }
+
     fetchData();
     connectWebSocket();
     const interval = setInterval(fetchData, 30000);
@@ -184,25 +218,41 @@ export default function App() {
   const fetchData = async () => {
     try {
       const [statusRes, approvalsRes, logsRes] = await Promise.all([
-        fetch('/api/status'),
-        fetch('/api/approvals'),
-        fetch('/api/audit?limit=100')
+        fetch('/api/status', { headers: authHeaders() }),
+        fetch('/api/approvals', { headers: authHeaders() }),
+        fetch('/api/audit?limit=100', { headers: authHeaders() })
       ]);
-      
+
+      if ([statusRes, approvalsRes, logsRes].some((res) => res.status === 401)) {
+        setAuthRequired(true);
+        setAgents([]);
+        setApprovals([]);
+        setLogs([]);
+        setStats({
+          revenue: 0,
+          approvalsOpen: 0,
+          udhaarOutstanding: 0,
+          payablesDue: 0,
+        });
+        setAlertCount(0);
+        return;
+      }
+
       const statusData = await statusRes.json();
       const approvalsData = await approvalsRes.json();
       const logsData = await logsRes.json();
 
-      setAgents(statusData.skills || []);
-      setApprovals(approvalsData || []);
-      setLogs(logsData || []);
+      setAuthRequired(false);
+      setAgents(toArray(statusData?.skills ?? statusData));
+      setApprovals(toArray(approvalsData));
+      setLogs(toArray(logsData));
 
       try {
         const [ordersRes, dailySummaryRes, vendorSummaryRes, udhaarRes] = await Promise.all([
-          fetch('/api/orders'),
-          fetch('/api/daily-summary'),
-          fetch('/api/vendor-payments'),
-          fetch('/api/udhaar'),
+          fetch('/api/orders', { headers: authHeaders() }),
+          fetch('/api/daily-summary', { headers: authHeaders() }),
+          fetch('/api/vendor-payments', { headers: authHeaders() }),
+          fetch('/api/udhaar', { headers: authHeaders() }),
         ]);
         const [ordersData, dailySummaryData, vendorSummaryData, udhaarData] = await Promise.all([
           ordersRes.json(),
@@ -222,10 +272,14 @@ export default function App() {
       }
 
       try {
-        const alertsRes = await fetch('/api/alerts?limit=20');
+        const alertsRes = await fetch('/api/alerts?limit=20', { headers: authHeaders() });
+        if (alertsRes.status === 401) {
+          setAlertCount(0);
+          return;
+        }
         const alertsData = await alertsRes.json();
         const readAlerts = JSON.parse(localStorage.getItem('read_alerts') || '[]');
-        const unread = (alertsData || []).filter((a) => !readAlerts.includes(a.id));
+        const unread = toArray(alertsData).filter((a) => !readAlerts.includes(a.id));
         setAlertCount(unread.length);
       } catch { /* ignore */ }
     } catch (error) {
@@ -234,9 +288,13 @@ export default function App() {
   };
 
   const connectWebSocket = () => {
+    if (!token) {
+      setIsConnected(false);
+      return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
-    const token = localStorage.getItem('retailos_token') || '';
     ws.current = new WebSocket(`${protocol}//${host}/ws/dashboard?token=${encodeURIComponent(token)}&channels=inventory,orders,sales,alerts,audit,notifications`);
 
     ws.current.onopen = () => setIsConnected(true);
@@ -504,6 +562,19 @@ export default function App() {
           ) : null}
 
           <div className="min-w-0">
+            {authRequired ? (
+              <div className="mb-8 rounded-[28px] border border-amber-200 bg-[rgba(255,252,247,0.86)] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.06)]">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700">Authentication Required</div>
+                <h2 className="font-display mt-3 text-2xl font-bold tracking-tight text-stone-900">
+                  The API requires a valid session token.
+                </h2>
+                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
+                  This page now renders safely, but backend requests are returning `401 Unauthorized`. Set `localStorage.retailos_token`
+                  or `localStorage.token` after logging in through the API, then refresh the dashboard.
+                </p>
+              </div>
+            ) : null}
+
             {!isKioskMode ? (
               <div className="mb-8 xl:hidden">
                 <div className="text-xs font-black uppercase tracking-[0.22em] text-stone-500">Current View</div>

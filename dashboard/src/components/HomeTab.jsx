@@ -184,6 +184,7 @@ export default function HomeTab({
     { label: 'Udhaar Outstanding', value: `₹${Math.round(stats.udhaarOutstanding || 0).toLocaleString()}`, icon: Megaphone, color: 'text-amber-700', bg: 'bg-amber-100' },
     { label: 'Payables Due', value: `₹${Math.round(stats.payablesDue || 0).toLocaleString()}`, icon: Clock, color: 'text-stone-800', bg: 'bg-stone-200' },
   ];
+  const activityFeed = Array.isArray(logs) ? logs : [];
 
   return (
     <div className="space-y-8 lg:space-y-10">
@@ -360,7 +361,7 @@ export default function HomeTab({
           </div>
         </div>
         <div className="space-y-3">
-          {logs.slice(0, 20).map((log, i) => (
+          {activityFeed.slice(0, 20).map((log, i) => (
             <motion.div
               key={`${log.id || i}-${refreshTick}`}
               initial={{ opacity: 0, x: -10 }}
@@ -394,7 +395,7 @@ export default function HomeTab({
               </div>
             </motion.div>
           ))}
-          {logs.length === 0 && (
+          {activityFeed.length === 0 && (
             <div className="rounded-[28px] border-2 border-dashed border-black/10 py-20 text-center font-bold uppercase tracking-[0.22em] text-stone-400">
               Waiting for actions...
             </div>

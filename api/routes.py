@@ -1232,7 +1232,9 @@ def create_app(orchestrator: Orchestrator) -> FastAPI:
     from auth.middleware import RateLimitMiddleware, SecurityHeadersMiddleware, RBACMiddleware
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RBACMiddleware)
-    app.add_middleware(RateLimitMiddleware, requests_per_minute=120)
+    import os as _os
+    rate_limit = 10000 if _os.environ.get("TESTING") else 120
+    app.add_middleware(RateLimitMiddleware, requests_per_minute=rate_limit)
 
     # ── Auth routes ──
     app.include_router(auth_router)

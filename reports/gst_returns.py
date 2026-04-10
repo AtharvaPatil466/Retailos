@@ -277,7 +277,11 @@ def _styled_headers(ws, row: int, headers: list[str]):
 
 
 def _auto_width(wb):
+    from openpyxl.cell.cell import Cell
     for ws in wb.worksheets:
         for col in ws.columns:
-            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 35)
+            real_cells = [c for c in col if isinstance(c, Cell)]
+            if not real_cells:
+                continue
+            max_len = max((len(str(cell.value or "")) for cell in real_cells), default=10)
+            ws.column_dimensions[real_cells[0].column_letter].width = min(max_len + 3, 35)

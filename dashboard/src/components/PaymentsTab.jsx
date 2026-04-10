@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { IndianRupee, CreditCard, Smartphone, Banknote } from 'lucide-react';
 
-const API = window.location.origin;
+const getApiBase = () => (typeof window !== 'undefined' ? window.location.origin : '');
+const getToken = () => {
+  try {
+    return localStorage.getItem('retailos_token') || localStorage.getItem('token') || '';
+  } catch {
+    return '';
+  }
+};
 const headers = () => ({
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+  Authorization: `Bearer ${getToken()}`,
   'Content-Type': 'application/json',
 });
 
 export default function PaymentsTab() {
+  const api = getApiBase();
   const [payments, setPayments] = useState([]);
   const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(true);
@@ -19,8 +27,8 @@ export default function PaymentsTab() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/payments/history`, { headers: headers() }).then((r) => r.json()),
-      fetch(`${API}/api/payments/config`, { headers: headers() }).then((r) => r.json()),
+      fetch(`${api}/api/payments/history`, { headers: headers() }).then((r) => r.json()),
+      fetch(`${api}/api/payments/config`, { headers: headers() }).then((r) => r.json()),
     ])
       .then(([hist, conf]) => {
         setPayments(hist.payments || []);
@@ -28,11 +36,11 @@ export default function PaymentsTab() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   const recordPayment = async () => {
     if (!orderId || !amount) return;
-    const resp = await fetch(`${API}/api/payments/record-offline`, {
+    const resp = await fetch(`${api}/api/payments/record-offline`, {
       method: 'POST',
       headers: headers(),
       body: JSON.stringify({ order_id: orderId, amount: parseFloat(amount), method }),

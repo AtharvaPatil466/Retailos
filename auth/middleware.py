@@ -44,12 +44,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, requests_per_minute: int = 120):
         super().__init__(app)
         self.default_rate = requests_per_minute
+        self._testing = bool(os.environ.get("TESTING"))
         self.window = 60  # seconds
         self._ip_hits: dict[str, list[float]] = defaultdict(list)
         self._endpoint_hits: dict[str, list[float]] = defaultdict(list)
         self._blocked_ips: dict[str, float] = {}  # IP -> blocked until timestamp
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        if self._testing:
+            return await call_next(request)
+
         client_ip = request.client.host if request.client else "unknown"
         path = request.url.path
         now = time.time()

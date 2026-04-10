@@ -1,21 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Clock, Award, AlertTriangle } from 'lucide-react';
 
-const API = window.location.origin;
+const getApiBase = () => (typeof window !== 'undefined' ? window.location.origin : '');
+const getToken = () => {
+  try {
+    return localStorage.getItem('retailos_token') || localStorage.getItem('token') || '';
+  } catch {
+    return '';
+  }
+};
 
 export default function StaffTab() {
+  const api = getApiBase();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/api/v2/staff`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+    fetch(`${api}/api/v2/staff`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
     })
       .then((r) => r.json())
       .then((data) => setStaff(data.staff || []))
       .catch(() => setStaff([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   if (loading) return <div className="p-6 text-gray-400">Loading staff...</div>;
 

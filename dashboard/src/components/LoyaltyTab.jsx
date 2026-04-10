@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Award, Star, Gift, TrendingUp } from 'lucide-react';
 
-const API = window.location.origin;
-const headers = () => ({
-  Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
-  'Content-Type': 'application/json',
-});
+const getApiBase = () => (typeof window !== 'undefined' ? window.location.origin : '');
 
 const TIER_COLORS = {
   bronze: 'text-orange-400',
@@ -15,14 +11,15 @@ const TIER_COLORS = {
 };
 
 export default function LoyaltyTab() {
+  const api = getApiBase();
   const [catalog, setCatalog] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/loyalty/catalog`).then((r) => r.json()),
-      fetch(`${API}/api/loyalty/catalog/categories`).then((r) => r.json()),
+      fetch(`${api}/api/loyalty/catalog`).then((r) => r.json()),
+      fetch(`${api}/api/loyalty/catalog/categories`).then((r) => r.json()),
     ])
       .then(([cat, cats]) => {
         setCatalog(cat.products || []);
@@ -30,7 +27,7 @@ export default function LoyaltyTab() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   if (loading) return <div className="p-6 text-gray-400">Loading loyalty...</div>;
 
