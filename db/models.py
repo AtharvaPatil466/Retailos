@@ -84,6 +84,8 @@ class Product(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[float] = mapped_column(Float, default=_now)
 
+    shelf_section_links = relationship("ShelfSectionProduct", back_populates="product", cascade="all, delete-orphan")
+
     __table_args__ = (Index("ix_products_category", "category"),)
 
 
@@ -374,6 +376,31 @@ class ShelfProduct(Base):
     days_here: Mapped[int] = mapped_column(Integer, default=0)
 
     zone = relationship("ShelfZone", back_populates="products")
+
+
+class ShelfSection(Base):
+    __tablename__ = "shelf_sections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    x: Mapped[float] = mapped_column(Float, default=0)
+    y: Mapped[float] = mapped_column(Float, default=0)
+    width: Mapped[float] = mapped_column(Float, default=200)
+    height: Mapped[float] = mapped_column(Float, default=140)
+    store_id: Mapped[Optional[int]] = mapped_column(Integer)
+
+    products = relationship("ShelfSectionProduct", back_populates="section", cascade="all, delete-orphan")
+
+
+class ShelfSectionProduct(Base):
+    __tablename__ = "shelf_section_products"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    section_id: Mapped[int] = mapped_column(Integer, ForeignKey("shelf_sections.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[str] = mapped_column(String(36), ForeignKey("products.id", ondelete="CASCADE"), index=True)
+
+    section = relationship("ShelfSection", back_populates="products")
+    product = relationship("Product", back_populates="shelf_section_links")
 
 
 # ── Notifications ─────────────────────────────────────────

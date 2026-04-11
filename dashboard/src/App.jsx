@@ -37,6 +37,7 @@ import CustomersTab from './components/CustomersTab';
 import OrdersTab from './components/OrdersTab';
 import FinancialsTab from './components/FinancialsTab';
 import ShelfTrackerTab from './components/ShelfTrackerTab';
+import ShelfMap from './components/ShelfMap';
 import DeliveryQueueTab from './components/DeliveryQueueTab';
 import CustomerAssistantTab from './components/CustomerAssistantTab';
 import StaffTab from './components/StaffTab';
@@ -150,6 +151,7 @@ export default function App() {
     { id: 'assistant', label: 'Customer Bot', icon: MessageSquare },
     { id: 'inventory', label: 'Inventory', icon: Package },
     { id: 'cart', label: 'Cart', icon: ShoppingCart },
+    { id: 'store-map', label: 'Store Map', icon: LayoutGrid },
     { id: 'shelves', label: 'Shelves', icon: LayoutGrid },
     { id: 'delivery', label: 'Delivery', icon: Bike },
     { id: 'suppliers', label: 'Suppliers', icon: Truck },
@@ -193,9 +195,9 @@ export default function App() {
       const approvalsData = await approvalsRes.json();
       const logsData = await logsRes.json();
 
-      setAgents(statusData.skills || []);
-      setApprovals(approvalsData || []);
-      setLogs(logsData || []);
+      setAgents(Array.isArray(statusData?.skills) ? statusData.skills : []);
+      setApprovals(Array.isArray(approvalsData) ? approvalsData : []);
+      setLogs(Array.isArray(logsData) ? logsData : []);
 
       try {
         const [ordersRes, dailySummaryRes, vendorSummaryRes, udhaarRes] = await Promise.all([
@@ -273,9 +275,16 @@ export default function App() {
           fetchData();
         }
 
+        if (message.type === 'stock_update') {
+          setRefreshTick(prev => prev + 1);
+        }
+
         // Legacy format fallback (from /ws/events broadcast_log)
         if (message.type === 'audit_log') {
           setLogs(prev => [message.data, ...prev].slice(0, 100));
+          if (message.data?.event_type === 'stock_update') {
+            setRefreshTick(prev => prev + 1);
+          }
           if (['owner_approved', 'owner_rejected', 'approval_requested'].includes(message.data?.event_type)) {
             fetchData();
           }
@@ -318,6 +327,10 @@ export default function App() {
     cart: {
       title: 'Cart',
       subtitle: 'Record in-store sales and update stock in one flow',
+    },
+    'store-map': {
+      title: 'Store Map',
+      subtitle: 'Drag, resize, and organize shelf sections across your store layout',
     },
     shelves: {
       title: 'Shelf Tracker',
@@ -583,6 +596,9 @@ export default function App() {
                 )}
                 {!isKioskMode && activeTab === 'cart' && (
                   <CartTab refreshTick={refreshTick} />
+                )}
+                {!isKioskMode && activeTab === 'store-map' && (
+                  <ShelfMap refetch={refreshTick} />
                 )}
                 {!isKioskMode && activeTab === 'suppliers' && (
                   <SuppliersTab />
