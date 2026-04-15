@@ -53,9 +53,9 @@ class ShelfAuditor:
     ) -> dict:
         """Use Gemini Vision to analyze shelf image."""
         try:
-            from google import genai
+            from runtime.llm_client import get_llm_client
 
-            client = genai.Client(api_key=self.gemini_key)
+            llm = get_llm_client()
 
             prompt = f"""Analyze this retail store shelf image for zone '{zone_name or zone_id}'.
             Check for:
@@ -74,16 +74,7 @@ class ShelfAuditor:
             - compliance_status (compliant/needs_attention/non_compliant)
             """
 
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": image_base64}},
-                ],
-            )
-
-            # Parse response
-            text = response.text
+            text = llm.generate_sync(prompt, image_base64=image_base64, mime_type="image/jpeg")
             try:
                 # Try to extract JSON from response
                 start = text.find("{")

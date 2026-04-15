@@ -54,7 +54,13 @@ class Memory:
                     return val
             except Exception:
                 pass
-        return self._fallback.get(key)
+        val = self._fallback.get(key)
+        if val is None:
+            return None
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, TypeError):
+            return val
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         serialized = json.dumps(value) if not isinstance(value, str) else value

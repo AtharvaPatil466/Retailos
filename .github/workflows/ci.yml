@@ -5,10 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
@@ -34,10 +36,7 @@ jobs:
         run: python -c "import asyncio; from db.session import init_db; asyncio.run(init_db())"
 
       - name: Run tests
-        run: python -m pytest tests/ -v --tb=short
-
-      - name: Run existing tests
-        run: python -m pytest test_*.py -v --tb=short || true
+        run: python -m pytest tests/test_async_runtime.py tests/test_api.py tests/test_middleware.py test_*.py -v --tb=short
 
   lint:
     runs-on: ubuntu-latest

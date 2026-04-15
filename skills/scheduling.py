@@ -3,7 +3,7 @@ import asyncio
 import time
 import json
 from typing import Any
-from google import genai
+from runtime.llm_client import get_llm_client
 from .base_skill import BaseSkill, SkillState
 
 FORMAT_PROMPT = """You are a smart retail store manager formatting a staff scheduling recommendation.
@@ -27,7 +27,7 @@ class SchedulingSkill(BaseSkill):
 
     def __init__(self, memory=None, audit=None):
         super().__init__(name="scheduling", memory=memory, audit=audit)
-        self.client = None
+        self.llm = get_llm_client()
 
     async def init(self) -> None:
         self.state = SkillState.RUNNING
@@ -93,24 +93,9 @@ Recommendation:
         )
         prompt += f"\nRaw Mapped Hourly Data Blocks:\n{blocks_text}"
 
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-
-        if self.client:
-            try:
-                response = await asyncio.wait_for(
-                    self.client.aio.models.generate_content(
-                        model="gemini-2.0-flash", contents=prompt,
-                    ),
-                    timeout=30,
-                )
-                report = response.text.strip()
-            except Exception:
-                report = self._build_raw_fallback(target_date, adequacy)
-        else:
+        try:
+            report = await self.llm.generate(prompt, timeout=30)
+        except Exception:
             report = self._build_raw_fallback(target_date, adequacy)
 
         # PUSH TO APPROVAL QUEUE (NEVER AUTO-APPROVE)

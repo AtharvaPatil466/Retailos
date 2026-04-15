@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from google import genai
+from runtime.llm_client import get_llm_client
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,7 +37,7 @@ class CustomerSkill(BaseSkill):
     def __init__(self, memory=None, audit=None):
         super().__init__(name="customer", memory=memory, audit=audit)
         self.customers_data: list[dict] = []
-        self.client: genai.Client | None = None
+        self.llm = get_llm_client()
 
     async def init(self) -> None:
         try:
@@ -207,14 +207,6 @@ class CustomerSkill(BaseSkill):
         return after_criterion_3, criteria_log
 
     async def _write_message(self, customer: dict, product_name: str, discount: Any) -> str:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return self._template_message(customer, product_name, discount)
-
         # Build purchase context
         recent_purchases = customer.get("purchase_history", [])[-5:]
         purchase_summary = ", ".join(
@@ -235,13 +227,7 @@ Discount/deal: {discount}
 Write a personalized WhatsApp message."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-            return response.text.strip()
+            return await self.llm.generate(prompt, timeout=30)
         except Exception as e:
             logger.warning("Customer message generation failed: %s", e)
             return self._template_message(customer, product_name, discount)
@@ -310,15 +296,6 @@ Write a personalized WhatsApp message."""
         }
 
     async def _write_reengage_message(self, customer: dict, avg_gap: float, days_absent: float) -> str:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                name = customer.get("name", "there")
-                return f"Hi {name}! We haven't seen you in a while and we miss you. Come back this week for a special 15% off your next purchase!"
-
         recent_purchases = customer.get("purchase_history", [])[-3:]
         purchase_summary = ", ".join(p.get("product", "item") for p in recent_purchases) if recent_purchases else "various items"
 
@@ -330,13 +307,7 @@ Recent purchases: {purchase_summary}
 Write a re-engagement WhatsApp message."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-            return response.text.strip()
+            return await self.llm.generate(prompt, timeout=30)
         except Exception as e:
             logger.warning("Re-engagement message generation failed: %s", e)
             name = customer.get("name", "there")

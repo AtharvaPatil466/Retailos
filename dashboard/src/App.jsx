@@ -44,6 +44,7 @@ import PaymentsTab from './components/PaymentsTab';
 import LoyaltyTab from './components/LoyaltyTab';
 import BarcodeScannerTab from './components/BarcodeScannerTab';
 import VoiceAssistantTab from './components/VoiceAssistantTab';
+import LoginForm from './components/LoginForm';
 import useOfflineSync from './useOfflineSync';
 
 const getStoredToken = () => {
@@ -563,16 +564,7 @@ export default function App() {
 
           <div className="min-w-0">
             {authRequired ? (
-              <div className="mb-8 rounded-[28px] border border-amber-200 bg-[rgba(255,252,247,0.86)] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.06)]">
-                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-700">Authentication Required</div>
-                <h2 className="font-display mt-3 text-2xl font-bold tracking-tight text-stone-900">
-                  The API requires a valid session token.
-                </h2>
-                <p className="mt-3 max-w-2xl text-sm leading-relaxed text-stone-600">
-                  This page now renders safely, but backend requests are returning `401 Unauthorized`. Set `localStorage.retailos_token`
-                  or `localStorage.token` after logging in through the API, then refresh the dashboard.
-                </p>
-              </div>
+              <LoginForm onSuccess={() => { setAuthRequired(false); setRefreshTick((t) => t + 1); }} />
             ) : null}
 
             {!isKioskMode ? (

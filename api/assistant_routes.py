@@ -133,20 +133,7 @@ async def assistant_chat(
     user: User = Depends(require_role("cashier")),
 ):
     """Chat with the voice assistant. Supports multi-turn conversation."""
-    from google import genai
-    import os
-
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        # Fallback: use the basic voice parser
-        from brain.voice_input import voice_processor
-        parsed = voice_processor.parse_command(body.text)
-        return {
-            "response": parsed.get("action_description", "I understand you said: " + body.text),
-            "intent": parsed.get("intent", "unknown"),
-            "mode": "fallback",
-            "language": body.language,
-        }
+    from runtime.llm_client import get_llm_client
 
     # Gather live context
     context = _gather_store_context()
@@ -155,7 +142,7 @@ async def assistant_chat(
     conv_id = body.conversation_id or f"conv_{user.id}_{int(time.time())}"
     history = _conversations.get(conv_id, [])
 
-    # Build messages for Gemini
+    # Build messages
     system_prompt = ASSISTANT_SYSTEM_PROMPT.format(context=context)
 
     # Build the full prompt with history
@@ -168,15 +155,8 @@ async def assistant_chat(
     full_prompt = "".join(prompt_parts)
 
     try:
-        client = genai.Client(api_key=api_key)
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model="gemini-2.0-flash", contents=full_prompt,
-            ),
-            timeout=30,
-        )
-
-        assistant_response = response.text.strip()
+        llm = get_llm_client()
+        assistant_response = await llm.generate(full_prompt, timeout=30)
 
         # Save to conversation history
         history.append({"role": "user", "content": body.text, "timestamp": time.time()})

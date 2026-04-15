@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 
 import uvicorn
@@ -8,9 +9,12 @@ from runtime.audit import AuditLogger
 from runtime.memory import Memory
 from runtime.orchestrator import Orchestrator
 from runtime.skill_loader import SkillLoader
+from runtime.logging_config import setup_logging
 from api.routes import create_app
 
 load_dotenv()
+setup_logging()
+logger = logging.getLogger("retailos.runtime")
 
 
 async def init_runtime():
@@ -30,7 +34,10 @@ async def init_runtime():
     # Load all skills
     skill_loader = SkillLoader(skills_dir="skills", memory=memory, audit=audit)
     skills = await skill_loader.discover_and_load()
-    print(f"[RetailOS] Loaded {len(skills)} skills: {', '.join(skills.keys())}")
+    logger.info(
+        "Loaded runtime skills",
+        extra={"skill_count": len(skills), "skill_names": sorted(skills.keys())},
+    )
 
     # Initialize orchestrator
     api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -114,7 +121,7 @@ async def _seed_memory(memory: Memory):
         ],
     })
 
-    print("[RetailOS] Memory seeded with demo data")
+    logger.info("Seeded demo memory")
 
 
 # Global app reference for uvicorn

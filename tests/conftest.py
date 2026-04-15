@@ -1,6 +1,5 @@
 """Shared test fixtures for integration tests."""
 
-import asyncio
 import os
 from unittest.mock import AsyncMock, MagicMock
 
@@ -27,15 +26,7 @@ def _make_mock_orchestrator():
     orch.memory = MagicMock()
     return orch
 
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def setup_db():
     """Create all tables for the test session."""
     async with engine.begin() as conn:
@@ -55,7 +46,7 @@ async def db_session(setup_db):
         await session.rollback()
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
 async def app(setup_db):
     """Create the FastAPI app with a mock orchestrator."""
     orch = _make_mock_orchestrator()

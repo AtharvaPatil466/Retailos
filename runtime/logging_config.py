@@ -1,11 +1,4 @@
-"""Structured JSON logging configuration.
-
-Provides structured logging with:
-- JSON output format for log aggregation (ELK, Datadog, etc.)
-- Correlation IDs for request tracing
-- Context injection (store_id, user_id, endpoint)
-- Log level configuration via environment
-"""
+"""Structured logging configuration for RetailOS."""
 
 import json
 import logging
@@ -16,10 +9,51 @@ import uuid
 from contextvars import ContextVar
 from typing import Any
 
-# Context variables for request-scoped data
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
 user_id_var: ContextVar[str] = ContextVar("user_id", default="")
 store_id_var: ContextVar[str] = ContextVar("store_id", default="")
+_BASE_LOG_RECORD_FIELDS = set(logging.makeLogRecord({}).__dict__.keys()) | {"message", "asctime"}
+
+
+def _extra_fields(record: logging.LogRecord) -> dict[str, Any]:
+    return {
+        key: value
+        for key, value in record.__dict__.items()
+        if key not in _BASE_LOG_RECORD_FIELDS and not key.startswith("_")
+    }
+
+
+def _merge_runtime_context(_logger, _method_name, event_dict: dict[str, Any]) -> dict[str, Any]:
+    if req_id := request_id_var.get(""):
+        event_dict.setdefault("request_id", req_id)
+    if user_id := user_id_var.get(""):
+        event_dict.setdefault("user_id", user_id)
+    if store_id := store_id_var.get(""):
+        event_dict.setdefault("store_id", store_id)
+    return event_dict
+
+
+def _add_record_metadata(_logger, _method_name, event_dict: dict[str, Any]) -> dict[str, Any]:
+    record = event_dict.get("_record")
+    if not record:
+        return event_dict
+
+    event_dict.setdefault("module", record.module)
+    event_dict.setdefault("function", record.funcName)
+    event_dict.setdefault("line", record.lineno)
+
+    for key, value in _extra_fields(record).items():
+        event_dict.setdefault(key, value)
+
+    return event_dict
+
+
+def _try_import_structlog():
+    try:
+        import structlog
+    except ImportError:
+        return None
+    return structlog
 
 
 class JSONFormatter(logging.Formatter):
@@ -35,30 +69,15 @@ class JSONFormatter(logging.Formatter):
             "function": record.funcName,
             "line": record.lineno,
         }
+        log_entry.update(_merge_runtime_context(None, "", {}))
+        log_entry.update(_extra_fields(record))
 
-        # Add correlation context
-        req_id = request_id_var.get("")
-        if req_id:
-            log_entry["request_id"] = req_id
-        user_id = user_id_var.get("")
-        if user_id:
-            log_entry["user_id"] = user_id
-        store_id = store_id_var.get("")
-        if store_id:
-            log_entry["store_id"] = store_id
-
-        # Add exception info
         if record.exc_info and record.exc_info[1]:
             log_entry["exception"] = {
                 "type": record.exc_info[0].__name__ if record.exc_info[0] else "Unknown",
                 "message": str(record.exc_info[1]),
                 "traceback": self.formatException(record.exc_info),
             }
-
-        # Add extra fields
-        for key in ("duration_ms", "status_code", "method", "path", "client_ip"):
-            if hasattr(record, key):
-                log_entry[key] = getattr(record, key)
 
         return json.dumps(log_entry, default=str)
 
@@ -79,49 +98,88 @@ class HumanFormatter(logging.Formatter):
         color = self.COLORS.get(record.levelname, "")
         req_id = request_id_var.get("")
         prefix = f"[{req_id[:8]}] " if req_id else ""
-        return f"{color}{record.levelname:8}{self.RESET} {prefix}{record.name}: {record.getMessage()}"
+        extras = " ".join(f"{key}={value}" for key, value in _extra_fields(record).items())
+        suffix = f" {extras}" if extras else ""
+        return f"{color}{record.levelname:8}{self.RESET} {prefix}{record.name}: {record.getMessage()}{suffix}"
+
+
+def bind_request_context(
+    request_id: str = "",
+    user_id: str = "",
+    store_id: str = "",
+) -> None:
+    request_id_var.set(request_id)
+    user_id_var.set(user_id)
+    store_id_var.set(store_id)
+
+    if structlog := _try_import_structlog():
+        structlog.contextvars.clear_contextvars()
+        payload = {key: value for key, value in {
+            "request_id": request_id,
+            "user_id": user_id,
+            "store_id": store_id,
+        }.items() if value}
+        if payload:
+            structlog.contextvars.bind_contextvars(**payload)
+
+
+def clear_request_context() -> None:
+    bind_request_context()
+    if structlog := _try_import_structlog():
+        structlog.contextvars.clear_contextvars()
 
 
 def setup_logging(
     level: str | None = None,
     json_format: bool | None = None,
 ) -> None:
-    """Configure application-wide structured logging.
-
-    Args:
-        level: Log level (DEBUG, INFO, WARNING, ERROR). Defaults to LOG_LEVEL env var.
-        json_format: Use JSON format. Defaults to LOG_FORMAT env var or True in production.
-    """
     log_level = level or os.environ.get("LOG_LEVEL", "INFO")
-    use_json = json_format if json_format is not None else os.environ.get("LOG_FORMAT", "json") == "json"
+    default_format = "json" if os.environ.get("RETAILOS_ENV", os.environ.get("ENV", "")).lower() == "production" else "human"
+    use_json = json_format if json_format is not None else os.environ.get("LOG_FORMAT", default_format) == "json"
 
-    # Create formatter
-    if use_json:
-        formatter = JSONFormatter()
-    else:
-        formatter = HumanFormatter()
-
-    # Configure root logger
     root = logging.getLogger()
     root.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-
-    # Remove existing handlers
     for handler in root.handlers[:]:
         root.removeHandler(handler)
 
-    # Add stdout handler
     handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(formatter)
+
+    structlog = _try_import_structlog()
+    if structlog:
+        shared_processors = [
+            structlog.contextvars.merge_contextvars,
+            _merge_runtime_context,
+            structlog.stdlib.add_log_level,
+            structlog.stdlib.add_logger_name,
+            _add_record_metadata,
+            structlog.processors.TimeStamper(fmt="iso", utc=True, key="timestamp"),
+            structlog.processors.StackInfoRenderer(),
+            structlog.processors.format_exc_info,
+        ]
+        renderer = structlog.processors.JSONRenderer() if use_json else structlog.dev.ConsoleRenderer(colors=sys.stdout.isatty())
+        handler.setFormatter(
+            structlog.stdlib.ProcessorFormatter(
+                processor=renderer,
+                foreign_pre_chain=shared_processors,
+            )
+        )
+        structlog.configure(
+            processors=shared_processors + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
+            wrapper_class=structlog.stdlib.BoundLogger,
+            logger_factory=structlog.stdlib.LoggerFactory(),
+            cache_logger_on_first_use=True,
+        )
+    else:
+        handler.setFormatter(JSONFormatter() if use_json else HumanFormatter())
+
     root.addHandler(handler)
 
-    # Quiet noisy libraries
     for lib in ("uvicorn.access", "uvicorn.error", "httpx", "httpcore"):
         logging.getLogger(lib).setLevel(logging.WARNING)
 
     logging.getLogger("retailos").info(
-        "Logging configured: level=%s, format=%s",
-        log_level,
-        "json" if use_json else "human",
+        "Logging configured",
+        extra={"log_level": log_level.upper(), "log_format": "json" if use_json else "human"},
     )
 
 

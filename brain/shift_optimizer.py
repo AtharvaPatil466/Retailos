@@ -1,20 +1,17 @@
 # brain/shift_optimizer.py
 from datetime import date
+from brain.db import get_connection
 from brain.footfall_analyzer import get_footfall_pattern
 from brain.festival_detector import check_upcoming_festival
 
 # Heuristic: 1 staff member can comfortably serve/checkout 20 customers per hour
 CUSTOMERS_PER_STAFF_HOUR = 20
 
-def _get_connection():
-    from brain.decision_logger import _get_connection as _get_main_conn
-    return _get_main_conn()
-
 def get_current_shifts(shift_date: str) -> dict:
     """Returns a dict of hour -> assigned staff density for a given date."""
     coverage = {h: 0 for h in range(24)}
 
-    with _get_connection() as conn:
+    with get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT start_hour, end_hour FROM staff_shifts WHERE shift_date = ?", (shift_date,))
         rows = cursor.fetchall()

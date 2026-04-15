@@ -4,10 +4,19 @@ Tests the full request/response cycle against a running server.
 Run with: pytest e2e/ --base-url http://localhost:8000
 """
 
+import os
 import time
 
 import pytest
 from playwright.sync_api import Page, expect
+
+pytestmark = [
+    pytest.mark.e2e,
+    pytest.mark.skipif(
+        os.environ.get("RUN_E2E") != "1",
+        reason="E2E browser tests are opt-in. Set RUN_E2E=1 to execute them.",
+    ),
+]
 
 
 # ── Health Checks ──

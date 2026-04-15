@@ -8,10 +8,9 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from runtime.logging_config import (
+    bind_request_context,
+    clear_request_context,
     generate_request_id,
-    request_id_var,
-    user_id_var,
-    store_id_var,
 )
 from runtime.metrics import metrics
 
@@ -22,11 +21,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Log all HTTP requests with timing and correlation IDs."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Generate and set request ID
         req_id = request.headers.get("X-Request-ID", generate_request_id())
-        request_id_var.set(req_id)
 
-        # Extract user context from JWT if available
+        user_id = ""
+        store_id = ""
         auth_header = request.headers.get("Authorization", "")
         if auth_header.startswith("Bearer "):
             try:
@@ -39,10 +37,12 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     algorithms=["HS256"],
                     options={"verify_exp": False},
                 )
-                user_id_var.set(payload.get("sub", ""))
-                store_id_var.set(payload.get("store_id", ""))
+                user_id = payload.get("sub", "")
+                store_id = payload.get("store_id", "")
             except Exception:
                 pass
+
+        bind_request_context(request_id=req_id, user_id=user_id, store_id=store_id)
 
         start = time.time()
         client_ip = request.client.host if request.client else "unknown"
@@ -75,7 +75,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             return response
 
-        except Exception as e:
+        except Exception as exc:
             duration_ms = round((time.time() - start) * 1000, 1)
             metrics.request_finished()
             metrics.record_request(request.method, request.url.path, 500, duration_ms)
@@ -84,7 +84,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 request.method,
                 request.url.path,
                 duration_ms,
-                str(e),
+                str(exc),
                 extra={
                     "method": request.method,
                     "path": request.url.path,
@@ -95,3 +95,5 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 exc_info=True,
             )
             raise
+        finally:
+            clear_request_context()
