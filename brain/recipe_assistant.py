@@ -6,7 +6,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from google import genai
+from runtime.llm_client import get_llm_client
+from runtime.utils import extract_json_from_llm
 
 logger = logging.getLogger(__name__)
 
@@ -145,30 +146,12 @@ async def parse_recipe_request(text: str) -> dict[str, Any]:
     if cached and now - cached.get("timestamp", 0) < CACHE_TTL_SECONDS:
         return cached["data"]
 
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        recipe = _fallback_recipe(text)
-        cache[normalized] = {"timestamp": now, "data": recipe}
-        _save_cache(cache)
-        return recipe
-
-    client = genai.Client(api_key=api_key)
+    llm = get_llm_client()
     prompt = f"{RECIPE_PARSE_PROMPT}\n\nCustomer request: {text}\n"
 
     try:
-        response = await asyncio.wait_for(
-            client.aio.models.generate_content(
-                model="gemini-2.0-flash", contents=prompt,
-            ),
-            timeout=30,
-        )
-        response_text = response.text.strip()
-        if "```json" in response_text:
-            response_text = response_text.split("```json", 1)[1].split("```", 1)[0].strip()
-        elif "```" in response_text:
-            response_text = response_text.split("```", 1)[1].split("```", 1)[0].strip()
-
-        parsed = json.loads(response_text)
+        response_text = await llm.generate(prompt, timeout=30)
+        parsed = extract_json_from_llm(response_text)
         ingredients = parsed.get("ingredients") or []
         if not parsed.get("dish_name") or not ingredients:
             raise ValueError("Gemini returned incomplete recipe data")

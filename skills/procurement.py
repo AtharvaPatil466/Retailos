@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 from typing import Any, cast
 
-from google import genai
+from runtime.llm_client import get_llm_client
+from runtime.utils import extract_json_from_llm
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,7 +54,7 @@ class ProcurementSkill(BaseSkill):
     def __init__(self, memory=None, audit=None):
         super().__init__(name="procurement", memory=memory, audit=audit)
         self.suppliers_data: list[dict] = []
-        self.client: genai.Client | None = None
+        self.llm = get_llm_client()
 
     async def init(self) -> None:
         try:
@@ -214,14 +215,6 @@ class ProcurementSkill(BaseSkill):
     async def _rank_with_gemini(
         self, product_name: str, suppliers: list[dict], memory_context: dict, wastage_context: str, market_context: str = ""
     ) -> dict[str, Any]:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return self._fallback_ranking(suppliers)
-
         prompt = f"""{RANKING_SYSTEM_PROMPT.replace("{wastage_context}", wastage_context).replace("{market_context}", market_context)}
 
 Product needing procurement: {product_name}
@@ -235,28 +228,8 @@ Past order history and context:
 Rank the top 2-3 suppliers with detailed reasoning."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt,
-                ),
-                timeout=30,
-            )
-
-            text = response.text
-            try:
-                if "```json" in text:
-                    parts = text.split("```json")
-                    if len(parts) > 1:
-                        text = parts[1].split("```")[0]
-                elif "```" in text:
-                    parts = text.split("```")
-                    if len(parts) > 2:
-                        text = parts[1]
-            except (IndexError, ValueError):
-                pass
-
-            return json.loads(text.strip())
+            text = await self.llm.generate(prompt, timeout=30)
+            return extract_json_from_llm(text)
 
         except Exception as e:
             logger.warning("Procurement Gemini ranking failed: %s", e)

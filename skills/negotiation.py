@@ -4,7 +4,8 @@ import logging
 import time
 from typing import Any
 
-from google import genai
+from runtime.llm_client import get_llm_client
+from runtime.utils import extract_json_from_llm
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class NegotiationSkill(BaseSkill):
 
     def __init__(self, memory=None, audit=None):
         super().__init__(name="negotiation", memory=memory, audit=audit)
-        self.client: genai.Client | None = None
+        self.llm = get_llm_client()
         self.active_negotiations: dict[str, dict] = {}
         self.message_log: list[dict] = []  # WhatsApp conversation log
 
@@ -304,14 +305,6 @@ class NegotiationSkill(BaseSkill):
         return [m for m in self.message_log if m.get("negotiation_id") == negotiation_id]
 
     async def _draft_outreach(self, product_name: str, supplier: dict, relationship: dict, price_context: str = "") -> str:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return self._template_outreach(product_name, supplier)
-
         prompt = f"""{OUTREACH_SYSTEM_PROMPT}
 
 Draft a WhatsApp message to this supplier:
@@ -323,13 +316,7 @@ Past relationship: {json.dumps(relationship, default=str) if relationship else '
 Write the message only, no explanation."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-            return response.text.strip()
+            return await self.llm.generate(prompt, timeout=30)
         except Exception as e:
             logger.warning("Negotiation outreach draft failed: %s", e)
             return self._template_outreach(product_name, supplier)
@@ -342,14 +329,6 @@ Write the message only, no explanation."""
         )
 
     async def _parse_reply(self, raw_reply: str, supplier_name: str) -> dict[str, Any]:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return self._fallback_parse(raw_reply)
-
         prompt = f"""{PARSE_REPLY_PROMPT}
 
 Supplier name: {supplier_name}
@@ -359,27 +338,8 @@ Their reply (may be Hinglish, messy, or partial):
 Parse this reply and identify what information is present and what's missing."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-
-            text = response.text
-            try:
-                if "```json" in text:
-                    parts = text.split("```json")
-                    if len(parts) > 1:
-                        text = parts[1].split("```")[0]
-                elif "```" in text:
-                    parts = text.split("```")
-                    if len(parts) > 2:
-                        text = parts[1]
-            except (IndexError, ValueError):
-                pass
-
-            return json.loads(text.strip())
+            text = await self.llm.generate(prompt, timeout=30)
+            return extract_json_from_llm(text)
         except Exception as e:
             logger.warning("Negotiation reply parse failed: %s", e)
             return self._fallback_parse(raw_reply)

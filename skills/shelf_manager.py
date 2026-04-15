@@ -6,7 +6,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
-from google import genai
+from runtime.llm_client import get_llm_client
+from runtime.utils import extract_json_from_llm
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -57,7 +58,7 @@ class ShelfManagerSkill(BaseSkill):
     def __init__(self, memory=None, audit=None):
         super().__init__(name="shelf_manager", memory=memory, audit=audit)
         self.shelf_data: dict = {}
-        self.client: genai.Client | None = None
+        self.llm = get_llm_client()
 
     async def init(self) -> None:
         try:
@@ -175,14 +176,6 @@ class ShelfManagerSkill(BaseSkill):
 
     async def _optimize_with_gemini(self, report: dict, zone_availability: dict) -> list[dict]:
         """Use Gemini to generate intelligent placement suggestions."""
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return []
-
         # Only send misplaced products (fitness < 0.7) to keep prompt focused
         misplaced = [p for p in report["products"] if p.get("zone_fitness") is not None and p["zone_fitness"] < 0.7]
         well_placed_count = len([p for p in report["products"] if p.get("zone_fitness") is not None and p["zone_fitness"] >= 0.7])
@@ -215,25 +208,8 @@ Summary: {well_placed_count} products are well-placed. Focus on the {len(misplac
 Generate placement suggestions."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-
-            text = response.text
-            try:
-                if "```json" in text:
-                    text = text.split("```json")[1].split("```")[0]
-                elif "```" in text:
-                    parts = text.split("```")
-                    if len(parts) > 2:
-                        text = parts[1]
-            except (IndexError, ValueError):
-                pass
-
-            parsed = json.loads(text.strip())
+            text = await self.llm.generate(prompt, timeout=30)
+            parsed = extract_json_from_llm(text)
             suggestions = parsed.get("suggestions", [])
             overall = parsed.get("overall_reasoning", "")
 

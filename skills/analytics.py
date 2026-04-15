@@ -5,7 +5,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from google import genai
+from runtime.llm_client import get_llm_client
+from runtime.utils import extract_json_from_llm
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -47,7 +48,7 @@ class AnalyticsSkill(BaseSkill):
 
     def __init__(self, memory=None, audit=None):
         super().__init__(name="analytics", memory=memory, audit=audit)
-        self.client: genai.Client | None = None
+        self.llm = get_llm_client()
 
     async def init(self) -> None:
         self.state = SkillState.RUNNING
@@ -121,14 +122,6 @@ class AnalyticsSkill(BaseSkill):
             return {"total_skus": 0, "low_stock_count": 0, "low_stock_items": []}
 
     async def _analyze(self, logs: list[dict], inventory: dict) -> dict[str, Any]:
-        if not self.client:
-            import os
-            api_key = os.environ.get("GEMINI_API_KEY", "")
-            if api_key:
-                self.client = genai.Client(api_key=api_key)
-            else:
-                return self._fallback_analysis(logs, inventory)
-
         # Summarize logs for the prompt (keep it focused)
         log_summary = []
         for log in logs[:50]:
@@ -153,27 +146,8 @@ Inventory status:
 Identify patterns, issues, and recommendations."""
 
         try:
-            response = await asyncio.wait_for(
-                self.client.aio.models.generate_content(
-                    model="gemini-2.0-flash", contents=prompt,
-                ),
-                timeout=30,
-            )
-
-            text = response.text
-            try:
-                if "```json" in text:
-                    parts = text.split("```json")
-                    if len(parts) > 1:
-                        text = parts[1].split("```")[0]
-                elif "```" in text:
-                    parts = text.split("```")
-                    if len(parts) > 2:
-                        text = parts[1]
-            except (IndexError, ValueError):
-                pass
-
-            return json.loads(text.strip())
+            text = await self.llm.generate(prompt, timeout=30)
+            return extract_json_from_llm(text)
         except Exception as e:
             logger.warning("Analytics Gemini call failed: %s", e)
             return self._fallback_analysis(logs, inventory)
