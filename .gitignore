@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
+myenv/
 .env
 
 # Node
@@ -10,6 +11,17 @@ node_modules/
 dist/
 build/
 .DS_Store
+
+# Editor / tool configs
+.claude/
+.cursor/
+.cursorrules
+.windsurfrules
+.mcp.json
+.opencode.json
+
+# Claude Code
+CLAUDE.md
 
 # Git
 .git/
