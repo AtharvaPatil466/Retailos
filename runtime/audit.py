@@ -61,12 +61,26 @@ class AuditLogger:
                     reasoning TEXT NOT NULL,
                     outcome TEXT NOT NULL,
                     status TEXT NOT NULL,
-                    metadata JSONB DEFAULT '{}'
+                    metadata JSONB DEFAULT '{}',
+                    hash TEXT DEFAULT '',
+                    previous_hash TEXT DEFAULT ''
                 );
                 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);
                 CREATE INDEX IF NOT EXISTS idx_audit_skill ON audit_log(skill);
                 CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
             """)
+            # Add hash columns if upgrading from older schema
+            try:
+                await self.pool.execute("ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS hash TEXT DEFAULT ''")
+                await self.pool.execute("ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS previous_hash TEXT DEFAULT ''")
+            except Exception:
+                pass  # Columns already exist
+            # Restore the hash chain head from the most recent entry
+            row = await self.pool.fetchrow(
+                "SELECT hash FROM audit_log ORDER BY timestamp DESC LIMIT 1"
+            )
+            if row and row["hash"]:
+                self._last_hash = row["hash"]
         except Exception:
             # Fall back to in-memory logging if PostgreSQL is unavailable
             self.pool = None
@@ -102,8 +116,8 @@ class AuditLogger:
             try:
                 await self.pool.execute(
                     """
-                    INSERT INTO audit_log (id, timestamp, skill, event_type, decision, reasoning, outcome, status, metadata)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    INSERT INTO audit_log (id, timestamp, skill, event_type, decision, reasoning, outcome, status, metadata, hash, previous_hash)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     """,
                     entry["id"],
                     entry["timestamp"],
@@ -114,6 +128,8 @@ class AuditLogger:
                     outcome,
                     status,
                     json.dumps(metadata or {}),
+                    entry["hash"],
+                    entry["previous_hash"],
                 )
             except Exception:
                 self._fallback_logs.append(entry)
