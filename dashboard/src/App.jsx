@@ -19,7 +19,8 @@ import {
   LayoutGrid,
   Bike,
   MessageSquare,
-  Mic
+  Mic,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Sidebar';
@@ -413,7 +414,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden text-stone-900">
+    <div className="min-h-screen overflow-x-hidden text-[var(--text)]">
       {!isKioskMode ? (
         <Sidebar 
           activeTab={activeTab} 
@@ -423,38 +424,47 @@ export default function App() {
         />
       ) : null}
 
-      <header className={`sticky top-0 z-40 border-b border-black/5 backdrop-blur-xl ${isKioskMode ? 'bg-[rgba(255,252,247,0.88)]' : 'bg-[rgba(244,239,230,0.82)]'}`}>
+      <header className={`sticky top-0 z-40 border-b border-[rgba(67,72,72,0.18)] backdrop-blur-xl ${isKioskMode ? 'bg-[rgba(17,20,19,0.92)]' : 'bg-[rgba(17,20,19,0.78)]'}`}>
         <div className="mx-auto max-w-[1500px] px-4 sm:px-6 lg:px-10">
           <div className="flex min-h-[84px] items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-700 to-amber-700 text-white shadow-lg shadow-teal-900/15">
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--surface-high)] text-[var(--primary)]">
                 <Zap size={20} />
               </div>
               <div>
-                <div className="font-display text-2xl font-bold tracking-tight">RetailOS</div>
-                <div className="text-xs font-semibold uppercase tracking-[0.28em] text-stone-500">
+                <div className="font-display text-3xl font-light italic tracking-tight text-[var(--primary)]">RetailOS</div>
+                <div className="atelier-label text-[10px] font-medium text-[#8d9192]">
                   {isKioskMode ? 'Customer kiosk' : 'Retail command center'}
                 </div>
               </div>
             </div>
 
             {!isKioskMode ? (
-              <div className="hidden min-w-0 flex-1 xl:flex xl:justify-center">
-                <div className="scrollbar-hide flex max-w-full items-center gap-2 overflow-x-auto rounded-full border border-black/5 bg-white/50 px-2 py-2 shadow-sm">
+              <div className="hidden min-w-0 flex-1 items-center justify-center gap-6 xl:flex">
+                <div className="relative min-w-[240px] max-w-[320px] flex-1">
+                  <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8d9192]" />
+                  <input
+                    readOnly
+                    value=""
+                    placeholder="Explore operations..."
+                    className="atelier-input w-full pl-10 font-medium text-[var(--text-muted)]"
+                  />
+                </div>
+                <div className="scrollbar-hide flex max-w-full items-center gap-1 overflow-x-auto rounded-sm atelier-panel-soft px-2 py-2">
                   {navItems.map((tab) => (
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`relative flex flex-shrink-0 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all ${
+                      className={`relative flex flex-shrink-0 items-center gap-2 rounded-sm px-4 py-2.5 text-sm transition-all ${
                         activeTab === tab.id
-                          ? 'bg-stone-900 text-white shadow-sm'
-                          : 'text-stone-600 hover:bg-black/[0.04] hover:text-stone-900'
+                          ? 'bg-[var(--surface-low)] text-[var(--primary)]'
+                          : 'text-[#8d9192] hover:bg-[var(--surface-low)] hover:text-[var(--text)]'
                       }`}
                     >
                       <tab.icon size={16} />
-                      <span>{tab.label}</span>
+                      <span className={activeTab === tab.id ? 'font-semibold' : 'font-medium'}>{tab.label}</span>
                       {tab.badge > 0 && (
-                        <span className="rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        <span className="rounded-sm bg-[var(--primary)] px-2 py-0.5 text-[10px] font-bold text-[var(--primary-ink)]">
                           {tab.badge}
                         </span>
                       )}
@@ -463,16 +473,16 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-full border border-black/5 bg-white/70 px-4 py-2 text-sm font-semibold text-stone-600">
+              <div className="atelier-panel-soft rounded-sm px-4 py-2 text-sm font-medium text-[var(--text-muted)]">
                 Ask about shelves, stock, and recipes
               </div>
             )}
 
             <div className="flex items-center gap-3">
               {!isKioskMode ? (
-                <div className="hidden sm:flex items-center gap-2 rounded-full border border-black/5 bg-white/55 px-4 py-2 text-sm">
-                  <div className={`h-2.5 w-2.5 rounded-full ${!isOnline ? 'bg-amber-500' : isConnected ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                  <span className="font-medium text-stone-700">
+                <div className="hidden sm:flex items-center gap-2 rounded-sm atelier-panel-soft px-4 py-2 text-sm">
+                  <div className={`h-2.5 w-2.5 rounded-full ${!isOnline ? 'bg-[#ccc6ba]' : isConnected ? 'bg-[#8bd3d4]' : 'bg-[#ffb4ab]'}`} />
+                  <span className="font-medium text-[var(--text-muted)]">
                     {!isOnline
                       ? `Offline${pendingCount > 0 ? ` (${pendingCount} queued)` : ''}`
                       : isSyncing
@@ -490,7 +500,7 @@ export default function App() {
               ) : null}
               <button 
                 onClick={fetchData}
-                className="rounded-full border border-black/5 bg-white/55 p-3 text-stone-600 transition-all hover:bg-white hover:text-stone-900"
+                className="rounded-sm atelier-panel-soft p-3 text-[#8d9192] transition-all hover:text-[var(--text)]"
                 title="Refresh data"
               >
                 <RefreshCw size={16} />
@@ -499,18 +509,18 @@ export default function App() {
                 <div className="relative">
                   <button
                     onClick={() => setShowAlerts(!showAlerts)}
-                    className="rounded-full border border-black/5 bg-white/55 p-3 text-stone-600 transition-all hover:bg-white hover:text-stone-900"
+                    className="rounded-sm atelier-panel-soft p-3 text-[#8d9192] transition-all hover:text-[var(--text)]"
                   >
                     <Bell size={16} />
                   </button>
                   {alertCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">
+                    <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-sm bg-[var(--primary)] px-1 text-[10px] font-bold text-[var(--primary-ink)]">
                       {alertCount}
                     </span>
                   )}
                 </div>
               ) : null}
-              <div className={`xl:hidden rounded-full border border-black/5 bg-white/55 p-3 text-stone-600 ${isKioskMode ? 'hidden' : ''}`}>
+              <div className={`xl:hidden rounded-sm atelier-panel-soft p-3 text-[#8d9192] ${isKioskMode ? 'hidden' : ''}`}>
                 <Menu size={16} />
               </div>
             </div>
@@ -523,16 +533,16 @@ export default function App() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+                    className={`flex items-center gap-2 rounded-sm border px-4 py-2 text-sm transition-all ${
                       activeTab === tab.id
-                        ? 'border-stone-900 bg-stone-900 text-white'
-                        : 'border-black/5 bg-white/55 text-stone-600 hover:bg-white'
+                        ? 'border-[rgba(215,193,194,0.35)] bg-[var(--surface-low)] text-[var(--primary)]'
+                        : 'border-[rgba(67,72,72,0.2)] bg-[var(--surface-high)] text-[#8d9192] hover:text-[var(--text)]'
                     }`}
                   >
                     <tab.icon size={15} />
                     <span>{tab.label}</span>
                     {tab.badge > 0 && (
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${activeTab === tab.id ? 'bg-white/15 text-white' : 'bg-red-600 text-white'}`}>
+                      <span className={`rounded-sm px-2 py-0.5 text-[10px] font-bold ${activeTab === tab.id ? 'bg-[rgba(215,193,194,0.16)] text-[var(--primary)]' : 'bg-[var(--primary)] text-[var(--primary-ink)]'}`}>
                         {tab.badge}
                       </span>
                     )}
@@ -549,12 +559,12 @@ export default function App() {
           {!isKioskMode ? (
             <aside className="hidden xl:block">
               <div className="sticky top-28">
-                <div className="mb-6 rounded-[28px] border border-black/5 bg-white/55 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)]">
-                  <div className="text-xs font-black uppercase tracking-[0.22em] text-stone-500">Current View</div>
-                  <h2 className="font-display mt-3 text-3xl font-bold tracking-tight text-stone-900">
+                <div className="mb-6 rounded-lg atelier-panel p-6 shadow-[0_40px_80px_rgba(0,0,0,0.18)]">
+                  <div className="atelier-label text-[10px] text-[#8bd3d4]">Current View</div>
+                  <h2 className="font-display mt-4 text-4xl font-light italic leading-none tracking-tight text-[var(--text)]">
                     {headerMap[activeTab]?.title || 'Dashboard'}
                   </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-stone-600">
+                  <p className="mt-4 text-sm leading-relaxed text-[var(--text-muted)]">
                     {headerMap[activeTab]?.subtitle || 'Real-time overview of your store operations'}
                   </p>
                 </div>
@@ -569,11 +579,11 @@ export default function App() {
 
             {!isKioskMode ? (
               <div className="mb-8 xl:hidden">
-                <div className="text-xs font-black uppercase tracking-[0.22em] text-stone-500">Current View</div>
-                <h2 className="font-display mt-2 text-3xl font-bold tracking-tight text-stone-900">
+                <div className="atelier-label text-[10px] text-[#8bd3d4]">Current View</div>
+                <h2 className="font-display mt-3 text-4xl font-light italic tracking-tight text-[var(--text)]">
                   {headerMap[activeTab]?.title || 'Dashboard'}
                 </h2>
-                <p className="mt-2 text-sm text-stone-600">
+                <p className="mt-3 text-sm text-[var(--text-muted)]">
                   {headerMap[activeTab]?.subtitle || 'Real-time overview of your store operations'}
                 </p>
               </div>

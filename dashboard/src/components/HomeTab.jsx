@@ -61,11 +61,11 @@ function AnalyticsSummarySection() {
 
   if (!summary) {
     return (
-      <div className="rounded-[28px] border border-dashed border-black/10 bg-white/60 p-8 text-center">
-        <BarChart2 size={32} className="mx-auto mb-3 text-stone-400" />
-        <h3 className="mb-1 text-sm font-bold text-stone-800">No insights yet</h3>
-        <p className="mb-4 text-xs text-stone-500">Run your first analytics sweep to see daily intelligence.</p>
-        <button onClick={runAnalytics} disabled={running} className="inline-flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-600 disabled:opacity-50">
+      <div className="atelier-panel rounded-lg p-8 text-center">
+        <BarChart2 size={32} className="mx-auto mb-3 text-[#8bd3d4]" />
+        <h3 className="mb-1 text-sm font-bold text-[var(--text)]">No insights yet</h3>
+        <p className="mb-4 text-xs text-[var(--text-muted)]">Run your first analytics sweep to see daily intelligence.</p>
+        <button onClick={runAnalytics} disabled={running} className="inline-flex items-center gap-2 rounded-md bg-[var(--primary)] px-4 py-2.5 text-sm font-bold text-[var(--primary-ink)] hover:brightness-105 disabled:opacity-50">
           <RefreshCw size={14} className={running ? 'animate-spin' : ''} />
           {running ? 'Running...' : 'Run Analytics'}
         </button>
@@ -78,19 +78,19 @@ function AnalyticsSummarySection() {
   const summaryText = summary.summary || summary.executive_summary || summary.text || '';
 
   return (
-    <div className="rounded-[32px] border border-black/5 bg-stone-900 p-6 text-stone-50 shadow-[0_22px_55px_rgba(0,0,0,0.18)] lg:p-7">
+    <div className="rounded-lg atelier-panel p-6 text-[var(--text)] shadow-[0_28px_80px_rgba(0,0,0,0.2)] lg:p-7">
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-500/20 text-teal-400">
+        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[rgba(139,211,212,0.14)] text-[#8bd3d4]">
           <BarChart2 size={20} />
         </div>
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400">AI Intelligence</div>
-          <h3 className="font-display mt-1 text-2xl font-bold">Daily Summary</h3>
+          <div className="atelier-label text-[10px] text-[#8bd3d4]">AI Intelligence</div>
+          <h3 className="font-display mt-1 text-3xl font-light italic">Daily Summary</h3>
         </div>
       </div>
 
       {summaryText && (
-        <p className="mt-5 text-sm leading-relaxed text-stone-300">{summaryText}</p>
+        <p className="mt-5 text-sm leading-relaxed text-[var(--text-muted)]">{summaryText}</p>
       )}
 
       {insights.length > 0 && (
@@ -99,12 +99,12 @@ function AnalyticsSummarySection() {
             const severity = insight.severity || 'info';
             const dotColor = severity === 'critical' ? 'bg-red-500' : severity === 'warning' ? 'bg-amber-500' : 'bg-emerald-500';
             return (
-              <div key={i} className="rounded-[20px] bg-white/5 p-4">
+              <div key={i} className="rounded-md bg-[var(--surface-low)] p-4">
                 <div className="flex items-center gap-2">
                   <div className={`h-2 w-2 rounded-full ${dotColor}`} />
-                  <span className="text-xs font-bold text-white">{insight.title || insight.type || 'Insight'}</span>
+                  <span className="text-xs font-bold text-[var(--text)]">{insight.title || insight.type || 'Insight'}</span>
                 </div>
-                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-stone-400">{insight.detail || insight.description || insight.text || ''}</p>
+                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[var(--text-muted)]">{insight.detail || insight.description || insight.text || ''}</p>
               </div>
             );
           })}
@@ -113,11 +113,11 @@ function AnalyticsSummarySection() {
 
       {recommendations.length > 0 && (
         <div className="mt-5">
-          <div className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-stone-400">System Recommendations</div>
+          <div className="mb-2 atelier-label text-[10px] text-[#8bd3d4]">System Recommendations</div>
           <ul className="space-y-1.5">
             {recommendations.slice(0, 5).map((rec, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-stone-300">
-                <Lightbulb size={12} className="mt-0.5 flex-shrink-0 text-amber-400" />
+              <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-[var(--text-muted)]">
+                <Lightbulb size={12} className="mt-0.5 flex-shrink-0 text-[var(--primary)]" />
                 {typeof rec === 'string' ? rec : rec.text || rec.recommendation || ''}
               </li>
             ))}
@@ -192,15 +192,15 @@ export default function HomeTab({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="overflow-hidden rounded-[32px] border border-black/5 bg-[linear-gradient(135deg,rgba(255,252,247,0.95),rgba(233,227,216,0.85))] p-7 shadow-[0_28px_70px_rgba(0,0,0,0.08)] lg:p-9"
+          className="overflow-hidden rounded-lg border border-[rgba(67,72,72,0.15)] bg-[linear-gradient(135deg,rgba(61,47,48,0.55),rgba(17,20,19,0.96))] p-7 shadow-[0_35px_90px_rgba(0,0,0,0.24)] lg:p-9"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-black/5 bg-white/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-stone-600">
+          <div className="inline-flex items-center gap-2 rounded-sm border border-[rgba(215,193,194,0.15)] bg-[rgba(25,28,27,0.55)] px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#8bd3d4]">
             Retail operations overview
           </div>
-          <h1 className="font-display mt-5 max-w-3xl text-4xl font-bold tracking-tight text-stone-900 lg:text-6xl">
+          <h1 className="font-display mt-5 max-w-3xl text-5xl font-light italic tracking-tight text-[var(--text)] lg:text-7xl">
             A cleaner control room for what your store needs next.
           </h1>
-          <p className="mt-5 max-w-2xl text-base leading-relaxed text-stone-600 lg:text-lg">
+          <p className="mt-5 max-w-2xl text-base leading-relaxed text-[var(--text-muted)] lg:text-lg">
             Keep the experience web-first: clearer decisions, sharper visibility, and a workspace that feels built for an owner running a real store instead of a generic AI dashboard.
           </p>
 
@@ -209,8 +209,8 @@ export default function HomeTab({
               onClick={onGoToApprovals}
               className={`inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-bold transition-all ${
                 approvalCount > 0
-                  ? 'bg-stone-900 text-white hover:bg-black'
-                  : 'bg-emerald-700 text-white hover:bg-emerald-600'
+                  ? 'bg-[var(--primary)] text-[var(--primary-ink)] hover:brightness-105'
+                  : 'bg-[#8bd3d4] text-[#003738] hover:brightness-105'
               }`}
             >
               {approvalCount > 0 ? <AlertCircle size={16} /> : <CheckCircle2 size={16} />}
@@ -221,7 +221,7 @@ export default function HomeTab({
             </button>
             <button
               onClick={onGoToPlans}
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-5 py-3 text-sm font-bold text-stone-700 transition-all hover:bg-white"
+              className="inline-flex items-center gap-2 rounded-sm border border-[rgba(67,72,72,0.24)] bg-[var(--surface-low)] px-5 py-3 text-sm font-bold text-[var(--text)] transition-all hover:bg-[var(--surface-high)]"
             >
               <FolderKanban size={16} />
               <span>See project plans</span>
@@ -234,30 +234,30 @@ export default function HomeTab({
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.06 }}
-          className="rounded-[32px] border border-black/5 bg-[rgba(255,252,247,0.78)] p-7 text-left shadow-[0_24px_60px_rgba(0,0,0,0.06)] transition-all hover:bg-white/90"
+          className="rounded-lg atelier-panel p-7 text-left shadow-[0_24px_70px_rgba(0,0,0,0.16)] transition-all hover:bg-[rgba(55,58,56,0.72)]"
         >
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[rgba(139,211,212,0.14)] text-[#8bd3d4]">
                 <UserCircle2 size={24} />
               </div>
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">Workspace profile</div>
-                <h3 className="font-display mt-1 text-2xl font-bold tracking-tight text-stone-900">
+                <div className="atelier-label text-[10px] text-[#8d9192]">Workspace profile</div>
+                <h3 className="font-display mt-1 text-3xl font-light italic tracking-tight text-[var(--text)]">
                   {workspaceProfile.name}
                 </h3>
               </div>
             </div>
-            <Briefcase size={18} className="text-stone-400" />
+            <Briefcase size={18} className="text-[#8d9192]" />
           </div>
-          <p className="mt-5 text-sm leading-relaxed text-stone-600">
+          <p className="mt-5 text-sm leading-relaxed text-[var(--text-muted)]">
             {workspaceProfile.workStyle}
           </p>
           <div className="mt-6 space-y-3">
             {workspaceProfile.preferences.slice(0, 3).map((item) => (
-              <div key={item.label} className="flex items-start justify-between gap-4 border-t border-black/5 pt-3 text-sm">
-                <span className="text-stone-500">{item.label}</span>
-                <span className="max-w-[60%] text-right font-semibold text-stone-800">{item.value}</span>
+              <div key={item.label} className="flex items-start justify-between gap-4 border-t border-[rgba(67,72,72,0.18)] pt-3 text-sm">
+                <span className="text-[#8d9192]">{item.label}</span>
+                <span className="max-w-[60%] text-right font-semibold text-[var(--text)]">{item.value}</span>
               </div>
             ))}
           </div>

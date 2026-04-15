@@ -244,11 +244,11 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
       key={item.sku}
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="group relative overflow-hidden rounded-[28px] border border-black/5 bg-[rgba(255,252,247,0.9)] text-stone-900 shadow-[0_18px_45px_rgba(0,0,0,0.05)] transition-colors hover:bg-white"
+      className="group relative overflow-hidden rounded-lg atelier-panel text-[var(--text)] shadow-[0_28px_70px_rgba(0,0,0,0.16)] transition-colors hover:bg-[rgba(55,58,56,0.72)]"
     >
-      <div className="relative h-40 overflow-hidden rounded-t-[28px] border-b border-black/5 bg-stone-100">
+      <div className="relative h-40 overflow-hidden rounded-t-lg border-b border-[rgba(67,72,72,0.18)] bg-[var(--surface-high)]">
         {!imageLoaded && (
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-stone-200 via-stone-100 to-stone-200" />
+          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[var(--surface-low)] via-[var(--surface-high)] to-[var(--surface-low)]" />
         )}
         <img
           src={imageSrc}
@@ -261,35 +261,35 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
         <button
           type="button"
           onClick={() => onStartEdit(item)}
-          className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/90 px-3 py-1.5 text-xs font-bold text-stone-700 opacity-0 shadow-sm transition-all hover:bg-white group-hover:opacity-100"
+          className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-sm border border-[rgba(215,193,194,0.28)] bg-[rgba(12,15,14,0.72)] px-3 py-1.5 text-xs font-bold text-[var(--primary)] opacity-0 shadow-sm transition-all hover:bg-[rgba(25,28,27,0.95)] group-hover:opacity-100"
         >
           <ImagePlus size={14} />
           Edit Image
         </button>
 
         {isEditing && (
-          <div className="absolute inset-x-3 top-14 z-10 rounded-2xl border border-black/10 bg-white p-3 shadow-xl">
+          <div className="absolute inset-x-3 top-14 z-10 rounded-md border border-[rgba(67,72,72,0.2)] bg-[rgba(12,15,14,0.96)] p-3 shadow-xl">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <div className="text-xs font-black uppercase tracking-widest text-stone-500">Update product image</div>
-              <button type="button" onClick={onCancelEdit} className="text-stone-400 transition-colors hover:text-stone-700">
+              <div className="atelier-label text-[10px] text-[#8d9192]">Update product image</div>
+              <button type="button" onClick={onCancelEdit} className="text-[#8d9192] transition-colors hover:text-[var(--text)]">
                 <X size={14} />
               </button>
             </div>
             <div className="relative">
-              <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <Link2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8d9192]" />
               <input
                 type="url"
                 value={draftImageUrl}
                 onChange={(e) => onDraftChange(e.target.value)}
                 placeholder="Paste image URL"
-                className="w-full rounded-xl border border-black/10 bg-stone-50 py-2.5 pl-9 pr-3 text-sm text-stone-900 placeholder:text-stone-400 focus:border-teal-600/50 focus:outline-none"
+                className="w-full rounded-sm border-0 bg-[var(--surface-highest)] py-2.5 pl-9 pr-3 text-sm text-[var(--text)] placeholder:text-[#8d9192] focus:outline-none"
               />
             </div>
             <div className="mt-3 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={onCancelEdit}
-                className="rounded-xl px-3 py-2 text-xs font-bold uppercase tracking-widest text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800"
+                className="rounded-sm px-3 py-2 text-xs font-bold uppercase tracking-widest text-[#8d9192] transition-colors hover:bg-[var(--surface-low)] hover:text-[var(--text)]"
               >
                 Cancel
               </button>
@@ -297,7 +297,7 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
                 type="button"
                 onClick={() => onSaveImage(item.sku)}
                 disabled={savingImage === item.sku}
-                className="rounded-xl bg-teal-700 px-3 py-2 text-xs font-bold uppercase tracking-widest text-white transition-colors hover:bg-teal-600 disabled:opacity-50"
+                className="rounded-sm bg-[var(--primary)] px-3 py-2 text-xs font-bold uppercase tracking-widest text-[var(--primary-ink)] transition-colors hover:brightness-105 disabled:opacity-50"
               >
                 {savingImage === item.sku ? 'Saving...' : 'Save Image'}
               </button>
@@ -309,19 +309,19 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
       <div className="p-5">
         <div className="mb-4 flex items-start justify-between">
           <div>
-            <div className="mb-1 text-xs font-bold text-stone-500">{item.sku}</div>
-            <h3 className="pr-8 text-base font-bold leading-tight text-stone-900">{item.product_name}</h3>
+            <div className="mb-1 atelier-label text-[10px] text-[#8d9192]">{item.sku}</div>
+            <h3 className="pr-8 font-display text-2xl font-light italic leading-tight text-[var(--text)]">{item.product_name}</h3>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-stone-600">
+              <span className="rounded-sm bg-[var(--surface-high)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#8d9192]">
                 {item.category}
               </span>
-              <span className="text-xs font-semibold text-stone-600">₹{item.unit_price}</span>
+              <span className="text-xs font-semibold text-[var(--primary)]">₹{item.unit_price}</span>
             </div>
           </div>
-          <div className={`rounded-xl border p-2 ${
-            item.status === 'critical' ? 'border-red-200 bg-red-50 text-red-700' :
-            item.status === 'warning' ? 'border-amber-200 bg-amber-50 text-amber-700' :
-            'border-emerald-200 bg-emerald-50 text-emerald-700'
+          <div className={`rounded-sm border p-2 ${
+            item.status === 'critical' ? 'border-[rgba(255,180,171,0.35)] bg-[rgba(147,0,10,0.18)] text-[#ffb4ab]' :
+            item.status === 'warning' ? 'border-[rgba(233,226,213,0.3)] bg-[rgba(74,70,61,0.4)] text-[#e9e2d5]' :
+            'border-[rgba(139,211,212,0.3)] bg-[rgba(0,57,58,0.5)] text-[#8bd3d4]'
           }`}>
             {item.status === 'critical' ? <PackageX size={18} /> :
              item.status === 'warning' ? <AlertTriangle size={18} /> :
@@ -331,20 +331,20 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-stone-500">Current Stock</div>
+            <div className="mb-2 atelier-label text-[10px] text-[#8d9192]">Current Stock</div>
             <div className="flex items-center gap-2">
-              <div className="flex shrink-0 items-center overflow-hidden rounded-lg border border-black/10 bg-white/90">
+              <div className="flex shrink-0 items-center overflow-hidden rounded-sm border border-[rgba(67,72,72,0.2)] bg-[var(--surface-low)]">
                 <button 
                   onClick={() => onStockChange(item.sku, item.current_stock - 5)}
                   disabled={updating === item.sku}
                   title="Decrease by 5"
-                  className="p-1 px-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50"
+                  className="p-1 px-2 text-[#8d9192] transition-colors hover:bg-[var(--surface-high)] hover:text-[var(--text)] disabled:opacity-50"
                 >
                   <Minus size={14} />
                 </button>
                 <span className={`min-w-[2.5ch] px-2 text-center text-lg font-black ${
                   item.status === 'critical' ? 'text-red-700' : 
-                  item.status === 'warning' ? 'text-amber-700' : 'text-stone-900'
+                  item.status === 'warning' ? 'text-[#e9e2d5]' : 'text-[var(--text)]'
                 }`}>
                   {updating === item.sku ? '...' : item.current_stock}
                 </span>
@@ -352,25 +352,25 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
                   onClick={() => onStockChange(item.sku, item.current_stock + 5)}
                   disabled={updating === item.sku}
                   title="Increase by 5"
-                  className="p-1 px-2 text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-900 disabled:opacity-50"
+                  className="p-1 px-2 text-[#8d9192] transition-colors hover:bg-[var(--surface-high)] hover:text-[var(--text)] disabled:opacity-50"
                 >
                   <Plus size={14} />
                 </button>
               </div>
-              <span className="ml-1 whitespace-nowrap pt-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">
+              <span className="ml-1 whitespace-nowrap pt-1 text-[10px] font-bold uppercase tracking-wider text-[#8d9192]">
                 Min: {item.threshold}
               </span>
             </div>
           </div>
           <div>
-            <div className="mb-1 text-[10px] font-bold uppercase tracking-wider text-stone-500">Velocity</div>
-            <div className="font-bold text-stone-900">{item.daily_sales_rate} <span className="text-xs font-medium text-stone-500">/day</span></div>
-            <div className="mt-2 text-[11px] text-stone-500">Barcode: {item.barcode || 'Not set'}</div>
+            <div className="mb-1 atelier-label text-[10px] text-[#8d9192]">Velocity</div>
+            <div className="font-bold text-[var(--text)]">{item.daily_sales_rate} <span className="text-xs font-medium text-[#8d9192]">/day</span></div>
+            <div className="mt-2 text-[11px] text-[#8d9192]">Barcode: {item.barcode || 'Not set'}</div>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center justify-between border-t border-black/5 pt-4">
-          <span className="text-xs font-semibold text-stone-500">Days until empty</span>
+        <div className="mt-4 flex items-center justify-between border-t border-[rgba(67,72,72,0.18)] pt-4">
+          <span className="text-xs font-semibold text-[#8d9192]">Days until empty</span>
           <span className={`text-sm font-black ${
             item.days_until_stockout < 2 ? 'text-red-700' :
             item.days_until_stockout < 5 ? 'text-amber-700' : 'text-emerald-700'
@@ -402,20 +402,20 @@ function RegisterProductModal({
   onSuggestSku,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-[28px] border border-black/5 bg-[rgba(255,252,247,0.98)] p-6 text-stone-900 shadow-[0_30px_100px_rgba(0,0,0,0.18)] lg:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl rounded-lg border border-[rgba(67,72,72,0.18)] bg-[rgba(17,20,19,0.96)] p-6 text-[var(--text)] shadow-[0_30px_100px_rgba(0,0,0,0.3)] lg:p-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.22em] text-stone-500">Inventory setup</div>
-            <h2 className="font-display mt-2 text-3xl font-bold tracking-tight">Register New Product</h2>
-            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+            <div className="atelier-label text-[10px] text-[#8bd3d4]">Inventory setup</div>
+            <h2 className="font-display mt-2 text-4xl font-light italic tracking-tight">Register New Product</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--text-muted)]">
               Add a new item to inventory with pricing, threshold, image, and barcode details.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-black/10 bg-white/80 p-2 text-stone-500 transition-colors hover:text-stone-900"
+            className="rounded-sm border border-[rgba(67,72,72,0.2)] bg-[var(--surface-low)] p-2 text-[#8d9192] transition-colors hover:text-[var(--text)]"
           >
             <X size={16} />
           </button>
@@ -776,31 +776,31 @@ export default function InventoryTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <ExpiryAlertsBanner />
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8d9192]" />
           <input
             type="text"
             placeholder="Search by name or SKU..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full rounded-xl border border-black/10 bg-white/80 py-2.5 pl-10 pr-4 text-sm text-stone-900 transition-colors placeholder:text-stone-400 focus:border-teal-600/50 focus:outline-none"
+            className="w-full rounded-sm border-0 bg-[var(--surface-highest)] py-2.5 pl-10 pr-4 text-sm text-[var(--text)] transition-colors placeholder:text-[#8d9192] focus:outline-none"
           />
         </div>
         <button 
           onClick={fetchInventory}
           disabled={loading}
-          className="flex items-center gap-2 rounded-xl border border-black/10 bg-white/80 px-4 py-2.5 text-sm font-semibold text-stone-700 transition-all hover:bg-white disabled:opacity-50"
+          className="flex items-center gap-2 rounded-sm border border-[rgba(67,72,72,0.22)] bg-[var(--surface-low)] px-4 py-2.5 text-sm font-semibold text-[var(--text)] transition-all hover:bg-[var(--surface-high)] disabled:opacity-50"
         >
-          <RefreshCw size={16} className={loading ? 'animate-spin text-teal-700' : 'text-teal-700'} />
+          <RefreshCw size={16} className={loading ? 'animate-spin text-[#8bd3d4]' : 'text-[#8bd3d4]'} />
           Refresh
         </button>
         <button
           onClick={openRegisterModal}
-          className="flex items-center gap-2 rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-teal-600"
+          className="flex items-center gap-2 rounded-sm bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-ink)] transition-colors hover:brightness-105"
         >
           <Plus size={16} />
           Register New Product
@@ -824,10 +824,10 @@ export default function InventoryTab() {
           />
         ))}
         {filtered.length === 0 && !loading && (
-          <div className="col-span-full rounded-[28px] border border-dashed border-black/10 bg-white/70 p-8 py-12 text-center">
-            <PackageX size={32} className="mx-auto mb-3 text-stone-400" />
-            <h3 className="mb-1 font-semibold text-stone-800">No items found</h3>
-            <p className="text-sm text-stone-500">Try adjusting your search</p>
+          <div className="col-span-full rounded-lg atelier-panel p-8 py-12 text-center">
+            <PackageX size={32} className="mx-auto mb-3 text-[#8d9192]" />
+            <h3 className="mb-1 font-semibold text-[var(--text)]">No items found</h3>
+            <p className="text-sm text-[var(--text-muted)]">Try adjusting your search</p>
           </div>
         )}
       </div>
@@ -856,7 +856,7 @@ export default function InventoryTab() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-bold text-emerald-700 shadow-[0_20px_50px_rgba(0,0,0,0.12)]">
+        <div className="fixed bottom-6 right-6 z-50 rounded-sm border border-[rgba(139,211,212,0.28)] bg-[rgba(12,15,14,0.96)] px-4 py-3 text-sm font-bold text-[#8bd3d4] shadow-[0_20px_50px_rgba(0,0,0,0.22)]">
           {toast}
         </div>
       )}

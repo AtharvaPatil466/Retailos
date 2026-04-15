@@ -1,27 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --background: #f4efe6;
-  --background-deep: #efe7db;
-  --card: rgba(255, 252, 247, 0.8);
-  --card-dark: #1b1d1e;
-  --primary: #0f766e;
-  --accent: #b45309;
-  --success: #15803d;
-  --danger: #b91c1c;
-  --warning: #ca8a04;
-  --text: #171717;
-  --text-muted: #57534e;
+  --background: #111413;
+  --background-deep: #0c0f0e;
+  --surface: #111413;
+  --surface-low: #191c1b;
+  --surface-high: #282b29;
+  --surface-highest: #323534;
+  --card: rgba(25, 28, 27, 0.84);
+  --card-soft: rgba(55, 58, 56, 0.6);
+  --primary: #d7c1c2;
+  --primary-ink: #3b2d2e;
+  --accent: #8bd3d4;
+  --success: #8bd3d4;
+  --danger: #ffb4ab;
+  --warning: #e9e2d5;
+  --text: #e1e3e1;
+  --text-muted: #c3c7c8;
+  --outline: rgba(141, 145, 146, 0.18);
 }
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 32%),
-    radial-gradient(circle at top right, rgba(180, 83, 9, 0.08), transparent 28%),
+    radial-gradient(circle at top left, rgba(139, 211, 212, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(215, 193, 194, 0.1), transparent 24%),
     linear-gradient(180deg, var(--background) 0%, var(--background-deep) 100%);
   color: var(--text);
   font-family: 'Manrope', system-ui, -apple-system, sans-serif;
@@ -43,27 +49,45 @@ html, body {
 }
 
 h1, h2, h3, h4, .font-display {
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: 'Newsreader', 'Manrope', serif;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-teal-700 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-xl transition-all active:scale-95 shadow-lg shadow-teal-700/20;
+    @apply bg-[var(--primary)] text-[var(--primary-ink)] font-bold py-3 px-6 rounded-md transition-all active:scale-95;
   }
   .btn-success {
-    @apply bg-emerald-700 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-xl transition-all active:scale-95 shadow-lg shadow-emerald-700/20;
+    @apply bg-[#8bd3d4] text-[#003738] font-bold py-3 px-6 rounded-md transition-all active:scale-95;
   }
   .btn-danger {
-    @apply bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition-all active:scale-95 shadow-lg shadow-red-700/20;
+    @apply bg-[#93000a] text-[#ffdad6] font-bold py-3 px-6 rounded-md transition-all active:scale-95;
+  }
+  .atelier-panel {
+    background: var(--card);
+    border: 1px solid var(--outline);
+    backdrop-filter: blur(20px);
+  }
+  .atelier-panel-soft {
+    background: var(--card-soft);
+    border: 1px solid rgba(67, 72, 72, 0.15);
+    backdrop-filter: blur(20px);
+  }
+  .atelier-label {
+    font-family: 'Space Grotesk', monospace;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  .atelier-input {
+    @apply rounded-sm border-0 bg-[var(--surface-highest)] px-4 py-3 text-sm text-[var(--text)] placeholder:text-[#8d9192] focus:outline-none focus:ring-0;
   }
 }
 
 .whatsapp-bubble-out {
-  @apply bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none max-w-[80%] self-end shadow-lg shadow-blue-600/20;
+  @apply max-w-[80%] self-end rounded-lg rounded-tr-none bg-[var(--primary)] p-3 text-[var(--primary-ink)];
 }
 
 .whatsapp-bubble-in {
-  @apply bg-zinc-800 text-white p-3 rounded-2xl rounded-tl-none max-w-[80%] self-start shadow-lg;
+  @apply max-w-[80%] self-start rounded-lg rounded-tl-none bg-[var(--surface-high)] p-3 text-[var(--text)];
 }
 
 @layer utilities {
@@ -71,14 +95,14 @@ h1, h2, h3, h4, .font-display {
     width: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.03);
+    background: rgba(12, 15, 14, 0.8);
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: rgba(255,255,255,0.15);
+    background: rgba(67, 72, 72, 0.85);
     border-radius: 3px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background: rgba(255,255,255,0.25);
+    background: rgba(141, 145, 146, 0.9);
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
