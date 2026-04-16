@@ -5,9 +5,19 @@ import { apiFetch, apiFetchArray } from '../api';
 
 const CATEGORY_OPTIONS = ['Dairy', 'Frozen', 'Snacks', 'Beverages', 'Staples', 'Household', 'Personal Care', 'Other'];
 
-function getFallbackImage(productName) {
-  return `https://source.unsplash.com/300x200/?${encodeURIComponent(productName)},food`;
-}
+const CATEGORY_STYLES = {
+  Dairy:            { emoji: '🥛', gradient: 'from-sky-400/30 to-blue-500/20' },
+  Frozen:           { emoji: '🧊', gradient: 'from-cyan-400/30 to-indigo-500/20' },
+  Snacks:           { emoji: '🍪', gradient: 'from-amber-400/30 to-orange-500/20' },
+  Beverages:        { emoji: '🥤', gradient: 'from-emerald-400/30 to-teal-500/20' },
+  Grocery:          { emoji: '🛒', gradient: 'from-lime-400/30 to-green-500/20' },
+  Cleaning:         { emoji: '🧹', gradient: 'from-violet-400/30 to-purple-500/20' },
+  'Personal Care':  { emoji: '🧴', gradient: 'from-pink-400/30 to-rose-500/20' },
+  'Baby Care':      { emoji: '🍼', gradient: 'from-yellow-300/30 to-amber-400/20' },
+  'Protein & Health': { emoji: '💪', gradient: 'from-red-400/30 to-orange-500/20' },
+  Bakery:           { emoji: '🍞', gradient: 'from-yellow-400/30 to-amber-500/20' },
+  Other:            { emoji: '📦', gradient: 'from-stone-400/30 to-stone-500/20' },
+};
 
 function getCategoryPrefix(category) {
   const map = {
@@ -217,24 +227,22 @@ function MarketIntelSection({ sku, unitPrice }) {
 }
 
 function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage, onStockChange, onStartEdit, onCancelEdit, onDraftChange, onSaveImage }) {
-  const [imageSrc, setImageSrc] = useState(item.image_url || getFallbackImage(item.product_name));
+  const [imageSrc, setImageSrc] = useState(item.image_url);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(!item.image_url);
 
   useEffect(() => {
     setImageLoaded(false);
-    setImageSrc(item.image_url || getFallbackImage(item.product_name));
-  }, [item.image_url, item.product_name]);
+    setImageFailed(!item.image_url);
+    setImageSrc(item.image_url);
+  }, [item.image_url]);
 
   const handleImageError = () => {
-    const fallback = getFallbackImage(item.product_name);
-    if (imageSrc !== fallback) {
-      setImageLoaded(false);
-      setImageSrc(fallback);
-      return;
-    }
+    setImageFailed(true);
     setImageLoaded(true);
   };
 
+  const catStyle = CATEGORY_STYLES[item.category] || CATEGORY_STYLES.Other;
   const isEditing = editingSku === item.sku;
 
   return (
@@ -245,16 +253,24 @@ function InventoryCard({ item, updating, editingSku, draftImageUrl, savingImage,
       className="group relative overflow-hidden rounded-lg atelier-panel text-[var(--text)] shadow-[0_28px_70px_rgba(0,0,0,0.16)] transition-colors hover:bg-[rgba(55,58,56,0.72)]"
     >
       <div className="relative h-40 overflow-hidden rounded-t-lg border-b border-[rgba(67,72,72,0.18)] bg-[var(--surface-high)]">
-        {!imageLoaded && (
-          <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[var(--surface-low)] via-[var(--surface-high)] to-[var(--surface-low)]" />
+        {imageFailed || !imageSrc ? (
+          <div className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${catStyle.gradient}`}>
+            <span className="text-6xl drop-shadow-lg">{catStyle.emoji}</span>
+          </div>
+        ) : (
+          <>
+            {!imageLoaded && (
+              <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-[var(--surface-low)] via-[var(--surface-high)] to-[var(--surface-low)]" />
+            )}
+            <img
+              src={imageSrc}
+              alt={item.product_name}
+              className={`h-full w-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
+              onLoad={() => setImageLoaded(true)}
+              onError={handleImageError}
+            />
+          </>
         )}
-        <img
-          src={imageSrc}
-          alt={item.product_name}
-          className={`h-full w-full object-cover transition-opacity duration-300 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
-          onLoad={() => setImageLoaded(true)}
-          onError={handleImageError}
-        />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/30 to-transparent" />
         <button
           type="button"

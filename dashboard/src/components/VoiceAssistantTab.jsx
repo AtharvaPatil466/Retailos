@@ -112,12 +112,11 @@ export default function VoiceAssistantTab() {
     setIsLoading(true);
 
     try {
-      const token = localStorage.getItem('retailos_token') || '';
       const res = await fetch(`${API_BASE}/api/assistant/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...authHeaders(),
         },
         body: JSON.stringify({
           text: text.trim(),
@@ -126,7 +125,10 @@ export default function VoiceAssistantTab() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || 'Sorry, I could not reach the assistant right now.');
+      }
 
       const assistantMsg = {
         role: 'assistant',
@@ -149,7 +151,7 @@ export default function VoiceAssistantTab() {
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, I\'m having trouble connecting. Please try again.',
+          content: err?.message || 'Sorry, I\'m having trouble connecting. Please try again.',
           timestamp: Date.now(),
         },
       ]);

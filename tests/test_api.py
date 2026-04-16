@@ -144,3 +144,33 @@ async def test_plugins_endpoint(client):
     resp = await client.get("/api/plugins", headers=auth_header(reg["token"]))
     assert resp.status_code == 200
     assert "plugins" in resp.json()
+
+
+@pytest.mark.asyncio
+async def test_assistant_chat_fallback_summary(client):
+    reg = await register_user(client, "assistant_summary_user", "owner")
+    resp = await client.post(
+        "/api/assistant/chat",
+        json={"text": "How's my store doing today?", "language": "en"},
+        headers=auth_header(reg["token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "fallback"
+    assert "store snapshot" in data["response"].lower()
+    assert any(action["target"] == "home" for action in data["actions"])
+
+
+@pytest.mark.asyncio
+async def test_assistant_chat_fallback_low_stock(client):
+    reg = await register_user(client, "assistant_stock_user", "owner")
+    resp = await client.post(
+        "/api/assistant/chat",
+        json={"text": "Which items are running low?", "language": "en"},
+        headers=auth_header(reg["token"]),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["mode"] == "fallback"
+    assert "running low" in data["response"].lower()
+    assert any(action["target"] == "inventory" for action in data["actions"])

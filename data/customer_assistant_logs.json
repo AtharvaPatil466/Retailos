@@ -106,5 +106,327 @@
     "availability_status": "in_stock",
     "missing_ingredients": [],
     "not_carried_ingredients": []
+  },
+  {
+    "timestamp": 1776327112.323328,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327116.396014,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327117.4875112,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327119.5298061,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327119.693644,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327119.875337,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327120.314796,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327120.69338,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327121.0390358,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327121.246486,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327121.4217112,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327121.578455,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776327133.3983529,
+    "query": "I want to make paneer butter masala",
+    "normalized_query": "i want to make paneer butter masala",
+    "intent": "recipe_assistant",
+    "dish_name": "Paneer Butter Masala",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "tomato",
+      "onion",
+      "garlic",
+      "ginger",
+      "garam masala"
+    ]
+  },
+  {
+    "timestamp": 1776327139.85317,
+    "query": "Do you have Maggi?",
+    "normalized_query": "do you have maggi?",
+    "intent": "product_availability",
+    "dish_name": null,
+    "availability_status": "in_stock",
+    "missing_ingredients": [],
+    "not_carried_ingredients": []
+  },
+  {
+    "timestamp": 1776330350.68699,
+    "query": "chai ke liye kya chahiye",
+    "normalized_query": "chai what do i need for",
+    "intent": "recipe_assistant",
+    "dish_name": "Masala Chai",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "sugar",
+      "ginger",
+      "cardamom"
+    ]
+  },
+  {
+    "timestamp": 1776330354.047403,
+    "query": "Where is Amul butter?",
+    "normalized_query": "where is amul butter?",
+    "intent": "shelf_location",
+    "dish_name": null,
+    "availability_status": "in_stock",
+    "missing_ingredients": [],
+    "not_carried_ingredients": []
+  },
+  {
+    "timestamp": 1776330355.26257,
+    "query": "Where is Amul butter?",
+    "normalized_query": "where is amul butter?",
+    "intent": "shelf_location",
+    "dish_name": null,
+    "availability_status": "in_stock",
+    "missing_ingredients": [],
+    "not_carried_ingredients": []
+  },
+  {
+    "timestamp": 1776330355.4345658,
+    "query": "Where is Amul butter?",
+    "normalized_query": "where is amul butter?",
+    "intent": "shelf_location",
+    "dish_name": null,
+    "availability_status": "in_stock",
+    "missing_ingredients": [],
+    "not_carried_ingredients": []
+  },
+  {
+    "timestamp": 1776330355.996067,
+    "query": "I want to make spaghetti tomato",
+    "normalized_query": "i want to make spaghetti tomato",
+    "intent": "recipe_assistant",
+    "dish_name": "Spaghetti with tomato sauce",
+    "availability_status": null,
+    "missing_ingredients": [
+      "salt"
+    ],
+    "not_carried_ingredients": [
+      "spaghetti pasta",
+      "tomato",
+      "onion",
+      "garlic",
+      "chilli flakes"
+    ]
+  },
+  {
+    "timestamp": 1776330465.042393,
+    "query": "chai ke liye kya chahiye",
+    "normalized_query": "chai what do i need for",
+    "intent": "recipe_assistant",
+    "dish_name": "Masala Chai",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "sugar",
+      "ginger",
+      "cardamom"
+    ]
+  },
+  {
+    "timestamp": 1776330465.081014,
+    "query": "chai ke liye kya chahiye",
+    "normalized_query": "chai what do i need for",
+    "intent": "recipe_assistant",
+    "dish_name": "Masala Chai",
+    "availability_status": null,
+    "missing_ingredients": [],
+    "not_carried_ingredients": [
+      "sugar",
+      "ginger",
+      "cardamom"
+    ]
+  },
+  {
+    "timestamp": 1776330511.703441,
+    "query": "i want to make butter panner",
+    "normalized_query": "i want to make butter panner",
+    "intent": "recipe_assistant",
+    "dish_name": "Butter Panner",
+    "availability_status": null,
+    "missing_ingredients": [
+      "salt"
+    ],
+    "not_carried_ingredients": [
+      "butter panner"
+    ]
   }
 ]

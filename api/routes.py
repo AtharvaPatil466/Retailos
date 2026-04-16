@@ -2047,6 +2047,108 @@ Open RetailOS for details."""
         }
 
     # ══════════════════════════════════════════════════════════
+    # STORE ASSISTANT (chat interface for VoiceAssistantTab)
+    # ══════════════════════════════════════════════════════════
+
+    @app.get("/api/assistant/status")
+    async def assistant_status():
+        return {"mode": "fallback", "status": "active", "language": "en"}
+
+    class AssistantChatPayload(BaseModel):
+        text: str
+        language: str = "en"
+        conversation_id: str = ""
+
+    @app.post("/api/assistant/chat")
+    async def assistant_chat(payload: AssistantChatPayload):
+        """Store owner chat — routes through voice parser + inventory/order data."""
+        import uuid as _uuid
+
+        text = payload.text.strip()
+        convo_id = payload.conversation_id or str(_uuid.uuid4())
+
+        # Try voice command parser first (handles stock, sell, udhaar, etc.)
+        voice_payload = VoiceCommandPayload(text=text)
+        parsed = await parse_voice_command(voice_payload)
+        action = parsed.get("action", "unknown")
+
+        if action != "unknown":
+            actions = []
+            if action == "stock_check":
+                actions.append({"type": "navigate", "target": "inventory", "label": "View Inventory"})
+            elif action == "udhaar_summary":
+                actions.append({"type": "navigate", "target": "customers", "label": "View Customers"})
+            elif action in ("sale_ready", "stock_update"):
+                actions.append({"type": "navigate", "target": "cart", "label": "Open Cart"})
+            elif action == "supplier_feedback":
+                actions.append({"type": "navigate", "target": "suppliers", "label": "View Suppliers"})
+            return {
+                "response": parsed.get("message", "Done."),
+                "actions": actions,
+                "conversation_id": convo_id,
+                "mode": "fallback",
+            }
+
+        # Broader conversational queries — answer from store data
+        text_lower = text.lower()
+
+        # "how's my store" / "today's summary"
+        if any(kw in text_lower for kw in ["how", "store", "today", "summary", "overview"]):
+            try:
+                summary = await get_daily_summary()
+                metrics = summary.get("metrics", {})
+                resp = (
+                    f"Here's your store summary:\n"
+                    f"• Revenue today: Rs {metrics.get('revenue', 0):,.0f}\n"
+                    f"• Orders: {metrics.get('total_orders', 0)}\n"
+                    f"• Items sold: {metrics.get('items_sold', 0)}\n"
+                    f"• Udhaar outstanding: Rs {metrics.get('udhaar_outstanding', 0):,.0f}"
+                )
+                return {"response": resp, "actions": [{"type": "navigate", "target": "home", "label": "Dashboard"}], "conversation_id": convo_id, "mode": "fallback"}
+            except Exception:
+                pass
+
+        # "pending approvals"
+        if any(kw in text_lower for kw in ["approval", "pending", "approve"]):
+            approvals = _read_json("approvals.json", [])
+            pending = [a for a in approvals if a.get("status") == "pending"]
+            resp = f"You have {len(pending)} pending approval{'s' if len(pending) != 1 else ''}."
+            if pending:
+                resp += "\n" + "\n".join(f"• {a.get('summary', a.get('type', 'Unknown'))}" for a in pending[:5])
+            return {"response": resp, "actions": [{"type": "navigate", "target": "approvals", "label": "View Approvals"}], "conversation_id": convo_id, "mode": "fallback"}
+
+        # "top products" / "best selling"
+        if any(kw in text_lower for kw in ["top", "best", "selling", "popular"]):
+            inv = _read_json("mock_inventory.json", [])
+            top = sorted(inv, key=lambda i: i.get("daily_sales_rate", 0), reverse=True)[:5]
+            resp = "Top selling products by daily velocity:\n" + "\n".join(
+                f"• {i['product_name']} — {i['daily_sales_rate']}/day" for i in top
+            )
+            return {"response": resp, "actions": [{"type": "navigate", "target": "inventory", "label": "View Inventory"}], "conversation_id": convo_id, "mode": "fallback"}
+
+        # "supplier" / "reliable"
+        if any(kw in text_lower for kw in ["supplier", "reliable", "vendor"]):
+            from brain.trust_scorer import get_trust_score
+            suppliers = _read_json("mock_suppliers.json", [])
+            enriched = []
+            for s in suppliers:
+                trust = get_trust_score(s["supplier_id"])
+                enriched.append({**s, "trust_score": trust["score"]})
+            ranked = sorted(enriched, key=lambda s: s["trust_score"], reverse=True)[:3]
+            resp = "Your most reliable suppliers:\n" + "\n".join(
+                f"• {s['supplier_name']} — trust score {s['trust_score']}" for s in ranked
+            )
+            return {"response": resp, "actions": [{"type": "navigate", "target": "suppliers", "label": "View Suppliers"}], "conversation_id": convo_id, "mode": "fallback"}
+
+        # Fallback
+        return {
+            "response": f"I understood: \"{text}\"\n\nTry asking about:\n• Stock status or low inventory\n• Today's summary\n• Top selling products\n• Supplier reliability\n• Pending approvals\n• Udhaar/credit status\n\nOr use commands like: \"add 20 Amul butter\", \"sell 3 maggi\"",
+            "actions": [],
+            "conversation_id": convo_id,
+            "mode": "fallback",
+        }
+
+    # ══════════════════════════════════════════════════════════
     # DELIVERY REQUESTS (connected: delivered → creates order → deducts inventory)
     # ══════════════════════════════════════════════════════════
 

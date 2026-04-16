@@ -1,6 +1,6 @@
 {
   "spaghetti tomato": {
-    "timestamp": 1774802632.652092,
+    "timestamp": 1776327111.945081,
     "data": {
       "dish_name": "Spaghetti with tomato sauce",
       "notes": "Using a basic tomato spaghetti recipe.",
@@ -90,7 +90,7 @@
     }
   },
   "chai what do i need for": {
-    "timestamp": 1774803623.006615,
+    "timestamp": 1776330350.51183,
     "data": {
       "dish_name": "Masala Chai",
       "notes": "Using a simple daily chai version.",
@@ -124,6 +124,90 @@
           "quantity_hint": "2 pods",
           "category_hint": "Grocery",
           "is_optional": true
+        }
+      ]
+    }
+  },
+  "paneer butter masala": {
+    "timestamp": 1776327133.122792,
+    "data": {
+      "dish_name": "Paneer Butter Masala",
+      "notes": "Using a standard North Indian home-style version.",
+      "ingredients": [
+        {
+          "name": "paneer",
+          "quantity_hint": "200 g",
+          "category_hint": "Dairy",
+          "is_optional": false
+        },
+        {
+          "name": "tomato",
+          "quantity_hint": "4",
+          "category_hint": "Produce",
+          "is_optional": false
+        },
+        {
+          "name": "onion",
+          "quantity_hint": "1",
+          "category_hint": "Produce",
+          "is_optional": false
+        },
+        {
+          "name": "butter",
+          "quantity_hint": "2 tbsp",
+          "category_hint": "Dairy",
+          "is_optional": false
+        },
+        {
+          "name": "cream",
+          "quantity_hint": "small pack",
+          "category_hint": "Dairy",
+          "is_optional": true
+        },
+        {
+          "name": "garlic",
+          "quantity_hint": "4 cloves",
+          "category_hint": "Produce",
+          "is_optional": false
+        },
+        {
+          "name": "ginger",
+          "quantity_hint": "1 inch",
+          "category_hint": "Produce",
+          "is_optional": false
+        },
+        {
+          "name": "garam masala",
+          "quantity_hint": "1 tsp",
+          "category_hint": "Grocery",
+          "is_optional": false
+        }
+      ]
+    }
+  },
+  "butter panner": {
+    "timestamp": 1776330511.557112,
+    "data": {
+      "dish_name": "Butter Panner",
+      "notes": "Using a simple pantry-oriented ingredient guess because Gemini was unavailable.",
+      "ingredients": [
+        {
+          "name": "butter panner",
+          "quantity_hint": "1",
+          "category_hint": "Grocery",
+          "is_optional": false
+        },
+        {
+          "name": "salt",
+          "quantity_hint": "to taste",
+          "category_hint": "Grocery",
+          "is_optional": false
+        },
+        {
+          "name": "cooking oil",
+          "quantity_hint": "as needed",
+          "category_hint": "Grocery",
+          "is_optional": false
         }
       ]
     }

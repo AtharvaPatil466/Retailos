@@ -11,6 +11,8 @@ The assistant has access to live inventory, orders, suppliers, and analytics.
 """
 
 import json
+import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -34,6 +36,12 @@ def _read_json(filename: str, default=None):
         return default if default is not None else []
 
 
+def _write_json(filename: str, data: Any) -> None:
+    with open(_data_dir / filename, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+
 class AssistantQuery(BaseModel):
     text: str
     language: str = "en"
@@ -47,6 +55,303 @@ class AssistantQuery(BaseModel):
 
 # Conversation history for multi-turn context (in-memory, per session)
 _conversations: dict[str, list[dict]] = {}
+
+LOOKUP_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "for",
+    "in",
+    "is",
+    "my",
+    "of",
+    "please",
+    "show",
+    "the",
+    "to",
+    "with",
+}
+
+
+def _normalize_lookup_text(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", value.lower())).strip()
+
+
+def _lookup_tokens(value: str) -> list[str]:
+    return [token for token in _normalize_lookup_text(value).split() if token and token not in LOOKUP_STOPWORDS]
+
+
+def _score_inventory_match(query: str, item: dict[str, Any]) -> int:
+    normalized_query = _normalize_lookup_text(query)
+    normalized_name = _normalize_lookup_text(item.get("product_name", ""))
+    normalized_sku = _normalize_lookup_text(item.get("sku", ""))
+    query_tokens = _lookup_tokens(query)
+    name_tokens = set(_lookup_tokens(item.get("product_name", "")))
+
+    score = 0
+    if normalized_query == normalized_sku:
+        score += 130
+    if normalized_query == normalized_name:
+        score += 120
+    if normalized_query and normalized_query in normalized_name:
+        score += 95
+    if normalized_query and normalized_query in normalized_sku:
+        score += 90
+
+    overlap = len([token for token in query_tokens if token in name_tokens or token == normalized_sku])
+    if overlap:
+        score += overlap * 20
+
+    return score
+
+
+def _find_best_inventory_match(query: str, inventory: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not query.strip():
+        return None
+
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for item in inventory:
+        score = _score_inventory_match(query, item)
+        if score > 0:
+            scored.append((score, item))
+
+    if not scored:
+        return None
+
+    scored.sort(
+        key=lambda entry: (
+            entry[0],
+            entry[1].get("daily_sales_rate", 0),
+            entry[1].get("current_stock", 0),
+        ),
+        reverse=True,
+    )
+    return scored[0][1] if scored[0][0] >= 40 else None
+
+
+def _latest_orders_snapshot(orders: dict[str, Any]) -> list[dict[str, Any]]:
+    customer_orders = orders.get("customer_orders", [])
+    if not customer_orders:
+        return []
+
+    latest_timestamp = max(order.get("timestamp", 0) for order in customer_orders)
+    latest_day = time.strftime("%Y-%m-%d", time.localtime(latest_timestamp))
+    return [
+        order
+        for order in customer_orders
+        if time.strftime("%Y-%m-%d", time.localtime(order.get("timestamp", 0))) == latest_day
+    ]
+
+
+def _fallback_assistant_reply(text: str, conversation_id: str) -> dict[str, Any]:
+    text = text.strip()
+    text_lower = text.lower()
+    inventory = _read_json("mock_inventory.json", [])
+    orders = _read_json("mock_orders.json", {"customer_orders": [], "vendor_orders": []})
+    suppliers = _read_json("mock_suppliers.json", [])
+    udhaar = _read_json("mock_udhaar.json", [])
+
+    add_match = re.search(r"(?:add|restock|stock)\s+(\d+)\s+(?:units?\s+(?:of\s+)?)?(.+)", text_lower)
+    if add_match:
+        qty = int(add_match.group(1))
+        product_query = add_match.group(2).strip()
+        matched = _find_best_inventory_match(product_query, inventory)
+        if matched:
+            updated_inventory = []
+            new_stock = matched.get("current_stock", 0) + qty
+            for item in inventory:
+                if item.get("sku") == matched.get("sku"):
+                    updated_inventory.append({**item, "current_stock": new_stock})
+                else:
+                    updated_inventory.append(item)
+            _write_json("mock_inventory.json", updated_inventory)
+            return {
+                "response": f"Added {qty} units of {matched['product_name']}. New stock: {new_stock}",
+                "actions": [{"type": "navigate", "target": "inventory", "label": "View Inventory"}],
+                "conversation_id": conversation_id,
+                "mode": "fallback",
+            }
+        return {
+            "response": f"Could not find a product matching '{product_query}'.",
+            "actions": [{"type": "navigate", "target": "inventory", "label": "Check Inventory"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    sell_match = re.search(r"(?:sell|sold|sale)\s+(\d+)\s+(.+?)(?:\s+to\s+(.+))?$", text_lower)
+    if sell_match:
+        qty = int(sell_match.group(1))
+        product_query = sell_match.group(2).strip()
+        customer_name = (sell_match.group(3) or "").strip()
+        matched = _find_best_inventory_match(product_query, inventory)
+        if matched:
+            response = f"Ready to sell {qty}x {matched['product_name']}"
+            if customer_name:
+                response += f" to {customer_name}"
+            return {
+                "response": response,
+                "actions": [{"type": "navigate", "target": "cart", "label": "Open Cart"}],
+                "conversation_id": conversation_id,
+                "mode": "fallback",
+            }
+
+    if "late" in text_lower or "delayed" in text_lower:
+        supplier_match = re.search(r"(.+?)(?:\s+(?:delivered|is|was))?\s+(?:late|delayed)", text_lower)
+        supplier_name = supplier_match.group(1).strip() if supplier_match else text
+        return {
+            "response": f"Logged supplier feedback: {supplier_name} had a late delivery.",
+            "actions": [{"type": "navigate", "target": "suppliers", "label": "View Suppliers"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    if (
+        "running low" in text_lower
+        or "low stock" in text_lower
+        or ("stock" in text_lower and any(keyword in text_lower for keyword in ("check", "status", "low")))
+    ):
+        low_stock = [
+            item for item in inventory if item.get("current_stock", 0) <= item.get("reorder_threshold", 0)
+        ]
+        if low_stock:
+            response = f"{len(low_stock)} items are running low:\n" + "\n".join(
+                f"• {item['product_name']} ({item.get('current_stock', 0)} left)"
+                for item in low_stock[:5]
+            )
+        else:
+            response = "Stock levels look healthy right now."
+        return {
+            "response": response,
+            "actions": [{"type": "navigate", "target": "inventory", "label": "View Inventory"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    product_stock_match = re.search(
+        r"(?:check|show|what(?:'s| is))\s+(?:the\s+)?stock(?:\s+of)?\s+(.+)$",
+        text_lower,
+    )
+    if product_stock_match:
+        product_query = product_stock_match.group(1).strip()
+        matched = _find_best_inventory_match(product_query, inventory)
+        if matched:
+            return {
+                "response": (
+                    f"{matched['product_name']} has {matched.get('current_stock', 0)} units in stock. "
+                    f"Reorder threshold: {matched.get('reorder_threshold', 0)}."
+                ),
+                "actions": [{"type": "navigate", "target": "inventory", "label": "View Inventory"}],
+                "conversation_id": conversation_id,
+                "mode": "fallback",
+            }
+
+    if "udhaar" in text_lower or "credit" in text_lower or "khata" in text_lower:
+        active_accounts = [entry for entry in udhaar if entry.get("balance", 0) > 0]
+        total = sum(entry.get("balance", 0) for entry in active_accounts)
+        return {
+            "response": f"{len(active_accounts)} customers owe Rs {total:,.0f} in total.",
+            "actions": [{"type": "navigate", "target": "customers", "label": "View Customers"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    if any(keyword in text_lower for keyword in ("how", "today", "summary", "overview")) and "store" in text_lower:
+        latest_orders = _latest_orders_snapshot(orders)
+        revenue = sum(order.get("total_amount", 0) for order in latest_orders)
+        items_sold = sum(item.get("qty", 0) for order in latest_orders for item in order.get("items", []))
+        total_orders = len(latest_orders)
+        total_udhaar = sum(entry.get("balance", 0) for entry in udhaar)
+        response = (
+            "Here’s your latest store snapshot:\n"
+            f"• Revenue: Rs {revenue:,.0f}\n"
+            f"• Orders: {total_orders}\n"
+            f"• Items sold: {items_sold}\n"
+            f"• Udhaar outstanding: Rs {total_udhaar:,.0f}"
+        )
+        return {
+            "response": response,
+            "actions": [{"type": "navigate", "target": "home", "label": "Dashboard"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    if any(keyword in text_lower for keyword in ("approval", "pending", "approve")):
+        approvals = _read_json("approvals.json", [])
+        pending = [entry for entry in approvals if entry.get("status") == "pending"]
+        response = f"You have {len(pending)} pending approval{'s' if len(pending) != 1 else ''}."
+        if pending:
+            response += "\n" + "\n".join(
+                f"• {entry.get('summary', entry.get('type', 'Unknown approval'))}" for entry in pending[:5]
+            )
+        return {
+            "response": response,
+            "actions": [{"type": "navigate", "target": "approvals", "label": "View Approvals"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    if any(keyword in text_lower for keyword in ("top", "best", "selling", "popular")):
+        product_sales: dict[str, int] = {}
+        for order in orders.get("customer_orders", []):
+            for item in order.get("items", []):
+                product_sales[item.get("product_name", "Unknown")] = (
+                    product_sales.get(item.get("product_name", "Unknown"), 0) + item.get("qty", 0)
+                )
+        top_products = sorted(product_sales.items(), key=lambda entry: entry[1], reverse=True)[:5]
+        if not top_products:
+            response = "I don't have enough sales data to rank products yet."
+        else:
+            response = "Top selling products:\n" + "\n".join(
+                f"• {name} — {qty} units sold" for name, qty in top_products
+            )
+        return {
+            "response": response,
+            "actions": [{"type": "navigate", "target": "inventory", "label": "View Inventory"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    if any(keyword in text_lower for keyword in ("supplier", "reliable", "vendor")):
+        try:
+            from brain.trust_scorer import get_trust_score
+
+            ranked = sorted(
+                [{**supplier, "trust_score": get_trust_score(supplier["supplier_id"])["score"]} for supplier in suppliers],
+                key=lambda supplier: supplier.get("trust_score", 0),
+                reverse=True,
+            )[:3]
+        except Exception:
+            ranked = suppliers[:3]
+
+        if not ranked:
+            response = "I don't have supplier data available right now."
+        else:
+            response = "Your most reliable suppliers:\n" + "\n".join(
+                f"• {supplier['supplier_name']} — trust score {supplier.get('trust_score', 'N/A')}"
+                for supplier in ranked
+            )
+        return {
+            "response": response,
+            "actions": [{"type": "navigate", "target": "suppliers", "label": "View Suppliers"}],
+            "conversation_id": conversation_id,
+            "mode": "fallback",
+        }
+
+    return {
+        "response": (
+            f"I understood: \"{text}\"\n\n"
+            "Try asking about:\n"
+            "• Stock status or low inventory\n"
+            "• Your latest store summary\n"
+            "• Top selling products\n"
+            "• Supplier reliability\n"
+            "• Pending approvals\n"
+            "• Udhaar or credit status"
+        ),
+        "actions": [],
+        "conversation_id": conversation_id,
+        "mode": "fallback",
+    }
 
 
 def _gather_store_context() -> str:
@@ -132,59 +437,44 @@ async def assistant_chat(
     user: User = Depends(require_role("cashier")),
 ):
     """Chat with the voice assistant. Supports multi-turn conversation."""
-    from runtime.llm_client import get_llm_client
-
-    # Gather live context
-    context = _gather_store_context()
-
-    # Build conversation history
     conv_id = body.conversation_id or f"conv_{user.id}_{int(time.time())}"
     history = _conversations.get(conv_id, [])
+    history.append({"role": "user", "content": body.text, "timestamp": time.time()})
 
-    # Build messages
-    system_prompt = ASSISTANT_SYSTEM_PROMPT.format(context=context)
-
-    # Build the full prompt with history
-    prompt_parts = [system_prompt + "\n\n"]
-    for msg in history[-6:]:  # Keep last 6 exchanges for context
-        role = "Owner" if msg["role"] == "user" else "Assistant"
-        prompt_parts.append(f"{role}: {msg['content']}\n")
-    prompt_parts.append(f"Owner: {body.text}\nAssistant:")
-
-    full_prompt = "".join(prompt_parts)
+    if not os.environ.get("GEMINI_API_KEY", ""):
+        fallback = _fallback_assistant_reply(body.text, conv_id)
+        history.append({"role": "assistant", "content": fallback["response"], "timestamp": time.time()})
+        _conversations[conv_id] = history[-20:]
+        return {**fallback, "language": body.language}
 
     try:
+        from runtime.llm_client import get_llm_client
+
+        context = _gather_store_context()
+        system_prompt = ASSISTANT_SYSTEM_PROMPT.format(context=context)
+        prompt_parts = [system_prompt + "\n\n"]
+        for msg in history[-7:-1]:
+            role = "Owner" if msg["role"] == "user" else "Assistant"
+            prompt_parts.append(f"{role}: {msg['content']}\n")
+        prompt_parts.append(f"Owner: {body.text}\nAssistant:")
+
         llm = get_llm_client()
-        assistant_response = await llm.generate(full_prompt, timeout=30)
-
-        # Save to conversation history
-        history.append({"role": "user", "content": body.text, "timestamp": time.time()})
+        assistant_response = await llm.generate("".join(prompt_parts), timeout=30)
         history.append({"role": "assistant", "content": assistant_response, "timestamp": time.time()})
-        _conversations[conv_id] = history[-20:]  # Keep last 20 messages
-
-        # Detect if response contains actionable items
-        actions = _extract_actions(assistant_response, body.text)
+        _conversations[conv_id] = history[-20:]
 
         return {
             "response": assistant_response,
             "conversation_id": conv_id,
-            "actions": actions,
+            "actions": _extract_actions(assistant_response, body.text),
             "mode": "gemini",
             "language": body.language,
         }
-
     except Exception as e:
-        # Graceful fallback
-        from brain.voice_input import voice_processor
-        parsed = voice_processor.parse_command(body.text)
-
-        return {
-            "response": parsed.get("action_description", f"I heard: {body.text}. Let me help with that."),
-            "intent": parsed.get("intent", "unknown"),
-            "mode": "fallback",
-            "language": body.language,
-            "error": str(e),
-        }
+        fallback = _fallback_assistant_reply(body.text, conv_id)
+        history.append({"role": "assistant", "content": fallback["response"], "timestamp": time.time()})
+        _conversations[conv_id] = history[-20:]
+        return {**fallback, "language": body.language, "error": str(e)}
 
 
 def _extract_actions(response: str, query: str) -> list[dict[str, Any]]:
@@ -210,7 +500,6 @@ def _extract_actions(response: str, query: str) -> list[dict[str, Any]]:
 @router.get("/status")
 async def assistant_status():
     """Get voice assistant status."""
-    import os
     has_gemini = bool(os.environ.get("GEMINI_API_KEY", ""))
     return {
         "mode": "gemini" if has_gemini else "fallback",
